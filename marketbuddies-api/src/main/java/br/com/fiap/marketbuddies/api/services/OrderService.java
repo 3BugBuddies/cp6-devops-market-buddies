@@ -5,6 +5,8 @@ import br.com.fiap.marketbuddies.api.dtos.OrderDto;
 import br.com.fiap.marketbuddies.api.dtos.OrderItemRequestDto;
 import br.com.fiap.marketbuddies.api.dtos.PaymentRequestDto;
 import br.com.fiap.marketbuddies.api.dtos.RetryItemDto;
+import br.com.fiap.marketbuddies.api.entities.AddressEntity;
+import br.com.fiap.marketbuddies.api.entities.DeliveryAddress;
 import br.com.fiap.marketbuddies.api.entities.EmailEntity;
 import br.com.fiap.marketbuddies.api.entities.OrderEntity;
 import br.com.fiap.marketbuddies.api.entities.OrderItemEntity;
@@ -18,6 +20,7 @@ import br.com.fiap.marketbuddies.api.enums.StatusEmail;
 import br.com.fiap.marketbuddies.api.exceptions.BusinessException;
 import br.com.fiap.marketbuddies.api.exceptions.NotFoundException;
 import br.com.fiap.marketbuddies.api.exceptions.OutOfStockException;
+import br.com.fiap.marketbuddies.api.repositories.AddressRepository;
 import br.com.fiap.marketbuddies.api.repositories.EmailRepository;
 import br.com.fiap.marketbuddies.api.repositories.OrderRepository;
 import br.com.fiap.marketbuddies.api.repositories.ProductRepository;
@@ -45,20 +48,30 @@ public class OrderService {
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
     private final EmailRepository emailRepository;
+    private final AddressRepository addressRepository;
+    private final ShippingCalculator shippingCalculator;
     private final Clock clock;
     private final DeliveryProperties deliveryProperties;
 
     public record CreatedOrder(OrderDto order, PaymentRequestDto paymentRequest) {
     }
 
-    /** Cria o pedido e reserva o estoque numa transação só; sem estoque, {@link OutOfStockException} desfaz tudo. */
+    /**
+     * Cria o pedido e reserva o estoque numa transação só; sem estoque, {@link OutOfStockException} desfaz tudo.
+     * O endereço precisa ser do cliente e cair numa zona de entrega (conferido antes de reservar); o pedido guarda
+     * a cópia do endereço e o frete, e o total é itens + frete.
+     */
     @Transactional
-    public CreatedOrder createOrder(Long customerId, List<OrderItemRequestDto> requestedItems, OrderOrigin origin) {
+    public CreatedOrder createOrder(Long customerId, Long addressId, List<OrderItemRequestDto> requestedItems,
+                                    OrderOrigin origin) {
         UserEntity customer = userRepository.findById(customerId)
                 .orElseThrow(() -> new NotFoundException("Cliente não encontrado"));
         if (customer.getRole() != Role.CUSTOMER) {
             throw new BusinessException("Conta de administrador não faz compras");
         }
+        AddressEntity address = addressRepository.findByIdAndCustomerId(addressId, customerId)
+                .orElseThrow(() -> new NotFoundException("Endereço " + addressId + " não encontrado"));
+        shippingCalculator.findZone(address.getCep());
 
         Map<Long, Integer> quantities = new TreeMap<>();
         requestedItems.forEach(i -> quantities.merge(i.productId(), i.quantity(), Integer::sum));
@@ -76,7 +89,7 @@ public class OrderService {
         order.setCustomer(customer);
         order.setStatus(OrderStatus.AWAITING_PAYMENT);
         order.setOrigin(origin);
-        order.setCreatedAt(LocalDateTime.now());
+        order.setCreatedAt(LocalDateTime.now(clock));
 
         BigDecimal total = BigDecimal.ZERO;
         for (Map.Entry<Long, Integer> entry : quantities.entrySet()) {
@@ -101,10 +114,16 @@ public class OrderService {
 
             total = total.add(product.getFinalPrice().multiply(BigDecimal.valueOf(quantity)));
         }
-        order.setTotalAmount(total.setScale(2, RoundingMode.HALF_UP));
+        ShippingCalculator.Quote quote = shippingCalculator.quote(address.getCep(), total);
+        order.setAddress(address);
+        order.setDeliveryAddress(DeliveryAddress.from(address));
+        order.setShippingFee(quote.fee());
+        order.setDeliveryDays(quote.deliveryDays());
+        order.setTotalAmount(total.add(quote.fee()).setScale(2, RoundingMode.HALF_UP));
 
         OrderEntity saved = orderRepository.save(order);
-        log.info("Pedido {} criado ({}) · {} · R$ {}", saved.getId(), origin, customer.getEmail(), saved.getTotalAmount());
+        log.info("Pedido {} criado ({}) · {} · R$ {} (frete R$ {})", saved.getId(), origin, customer.getEmail(),
+                saved.getTotalAmount(), saved.getShippingFee());
         return new CreatedOrder(OrderDto.from(saved), PaymentRequestDto.from(saved));
     }
 

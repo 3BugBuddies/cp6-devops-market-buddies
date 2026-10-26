@@ -105,4 +105,8 @@ public interface OrderRepository extends JpaRepository<OrderEntity, Long> {
              order by o.createdAt desc, o.id desc
             """)
     List<RecentOrderRow> findRecent(Pageable pageable);
+
+    @Modifying(clearAutomatically = true)
+    @Query("update OrderEntity o set o.address = null where o.address.id = :addressId")
+    int detachAddress(@Param("addressId") Long addressId);
 }

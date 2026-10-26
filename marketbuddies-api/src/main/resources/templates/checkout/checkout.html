@@ -22,7 +22,39 @@
         <div class="mb-page-header" style="margin: 0"><h1>Revisar e pagar</h1><a th:href="@{/cart}">Alterar carrinho</a></div>
 
         <div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
-            <section class="mb-card" style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+            <div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 24px">
+            <section class="mb-card" style="display: flex; flex-direction: column; gap: 12px">
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap">
+                    <h2 class="mb-card__title" style="margin: 0">Entregar em</h2>
+                    <a th:href="@{/addresses/new(next='/checkout')}">Cadastrar endereço</a>
+                </div>
+                <div th:if="${addresses.isEmpty()}" class="mb-alert mb-alert--warning" role="status">
+                    <svg class="mb-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9 16H3z"></path><path d="M12 10v4M12 17h.01"></path></svg>
+                    <span>Cadastre um endereço de entrega para continuar.</span>
+                </div>
+                <form th:unless="${addresses.isEmpty()}" th:action="@{/checkout}" method="get"
+                      style="display: flex; flex-direction: column; gap: 8px">
+                    <label th:each="a : ${addresses}"
+                           th:style="${'display: flex; gap: 12px; align-items: flex-start; padding: 12px; border-radius: var(--mb-radius-sm); cursor: pointer; '
+                                     + (a.id == selectedAddressId ? 'border: 1px solid var(--mb-blue-600); background: var(--mb-blue-50)' : 'border: 1px solid var(--mb-line)')}">
+                        <input type="radio" name="addressId" th:value="${a.id}" th:checked="${a.id == selectedAddressId}"
+                               onchange="this.form.submit()" style="margin-top: 4px">
+                        <span style="display: flex; flex-direction: column; min-width: 0">
+                            <strong th:text="${a.label != null ? a.label : 'Endereço'}">Casa</strong>
+                            <span th:text="${a.street + ', ' + a.number + (a.complement != null ? ' · ' + a.complement : '')}">Avenida Paulista, 1000</span>
+                            <span style="font-size: var(--mb-fs-xs); color: var(--mb-ink-600)"
+                                  th:text="${a.district + ' · ' + a.city + '/' + a.uf + ' · CEP ' + #strings.substring(a.cep, 0, 5) + '-' + #strings.substring(a.cep, 5)}">Bela Vista · São Paulo/SP · CEP 01310-100</span>
+                        </span>
+                    </label>
+                    <noscript><button class="mb-btn mb-btn--secondary" type="submit">Usar este endereço</button></noscript>
+                </form>
+                <div th:if="${shippingError != null}" class="mb-alert mb-alert--danger" role="alert">
+                    <svg class="mb-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4M12 16h.01"></path></svg>
+                    <span th:text="${shippingError}">Não entregamos no CEP 13010-000.</span>
+                </div>
+            </section>
+
+            <section class="mb-card" style="display: flex; flex-direction: column; gap: 4px">
                 <h2 class="mb-card__title">Itens</h2>
                 <div th:each="it : ${cart.items}"
                      style="display: flex; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--mb-line)">
@@ -47,6 +79,7 @@
                         <strong style="color: var(--mb-ink-900)" th:text="${customerEmail}">ana.souza@exemplo.com</strong>.</span>
                 </div>
             </section>
+            </div>
 
             <aside class="mb-card" style="flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 12px">
                 <h2 class="mb-card__title" style="margin: 0">Pagamento</h2>
@@ -57,16 +90,28 @@
                         <span style="font-size: var(--mb-fs-xs); color: var(--mb-ink-600)">O banco confirma em alguns segundos.</span>
                     </div>
                 </div>
-                <div class="mb-row mb-row--total">
+                <div class="mb-row"><span>Subtotal</span>
+                    <span style="font-variant-numeric: tabular-nums" th:text="${'R$ ' + #numbers.formatDecimal(cart.total, 1, 'POINT', 2, 'COMMA')}">R$ 120,00</span></div>
+                <div class="mb-row" th:if="${quote != null}"><span th:text="${'Frete · ' + quote.zoneName()}">Frete · Centro expandido SP</span>
+                    <span style="font-variant-numeric: tabular-nums"
+                          th:text="${quote.free() ? 'grátis' : 'R$ ' + #numbers.formatDecimal(quote.fee(), 1, 'POINT', 2, 'COMMA')}">R$ 7,90</span></div>
+                <div class="mb-row" th:if="${quote != null}"><span>Prazo</span>
+                    <span th:text="${quote.deliveryDays() + (quote.deliveryDays() == 1 ? ' dia útil' : ' dias úteis')}">1 dia útil</span></div>
+                <div class="mb-row mb-row--total" th:if="${orderTotal != null}">
                     <span>Total</span>
-                    <span th:text="${'R$ ' + #numbers.formatDecimal(cart.total, 1, 'POINT', 2, 'COMMA')}">R$ 34,83</span>
+                    <span th:text="${'R$ ' + #numbers.formatDecimal(orderTotal, 1, 'POINT', 2, 'COMMA')}">R$ 127,90</span>
                 </div>
-                <form th:action="@{/checkout}" method="post" style="display: contents"
+                <p th:if="${quote != null and !quote.free()}" style="margin: 0; font-size: var(--mb-fs-xs); color: var(--mb-ink-600)"
+                   th:text="${'Frete grátis a partir de R$ ' + #numbers.formatDecimal(freeShippingFrom, 1, 'POINT', 2, 'COMMA') + ' em produtos.'}">Frete grátis a partir de R$ 150,00 em produtos.</p>
+                <form th:if="${quote != null}" th:action="@{/checkout}" method="post" style="display: contents"
                       onsubmit="this.querySelector('button[type=submit]').disabled = true">
-                    <input type="hidden" name="expectedTotal" th:value="${cart.total}">
+                    <input type="hidden" name="addressId" th:value="${selectedAddressId}">
+                    <input type="hidden" name="expectedTotal" th:value="${orderTotal}">
                     <button class="mb-btn mb-btn--buy mb-btn--block" type="submit"
-                            th:text="${'Pagar R$ ' + #numbers.formatDecimal(cart.total, 1, 'POINT', 2, 'COMMA')}">Pagar R$ 34,83</button>
+                            th:text="${'Pagar R$ ' + #numbers.formatDecimal(orderTotal, 1, 'POINT', 2, 'COMMA')}">Pagar R$ 127,90</button>
                 </form>
+                <button th:if="${quote == null}" class="mb-btn mb-btn--buy mb-btn--block" type="button" disabled
+                        th:text="${addresses.isEmpty() ? 'Cadastre um endereço para pagar' : 'Sem entrega para este CEP'}">Sem entrega para este CEP</button>
                 <p style="margin: 0; font-size: var(--mb-fs-xs); color: var(--mb-ink-600)">Ao pagar, os itens ficam reservados para você enquanto o banco responde.</p>
             </aside>
         </div>

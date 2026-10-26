@@ -28,6 +28,21 @@ public class OrderEntity {
     @EqualsAndHashCode.Exclude
     private UserEntity customer;
 
+    /** De onde veio a cópia; vira nulo quando o cliente exclui o endereço (a cópia fica). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "address_id")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private AddressEntity address;
+
+    @Embedded
+    private DeliveryAddress deliveryAddress;
+
+    @Column(precision = 15, scale = 2)
+    private BigDecimal shippingFee;
+
+    private Integer deliveryDays;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     private OrderStatus status;

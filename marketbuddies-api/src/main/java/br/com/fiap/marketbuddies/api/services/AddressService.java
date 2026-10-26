@@ -7,6 +7,7 @@ import br.com.fiap.marketbuddies.api.entities.AddressEntity;
 import br.com.fiap.marketbuddies.api.exceptions.FieldValidationException;
 import br.com.fiap.marketbuddies.api.exceptions.NotFoundException;
 import br.com.fiap.marketbuddies.api.repositories.AddressRepository;
+import br.com.fiap.marketbuddies.api.repositories.OrderRepository;
 import br.com.fiap.marketbuddies.api.repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +25,7 @@ public class AddressService {
     public static final String CEP_NOT_FOUND = "CEP não encontrado";
 
     private final AddressRepository addressRepository;
+    private final OrderRepository orderRepository;
     private final UserRepository userRepository;
     private final ViaCepClient viaCepClient;
 
@@ -64,8 +66,9 @@ public class AddressService {
     @Transactional
     public void delete(Long id, Long customerId) {
         AddressEntity address = find(id, customerId);
+        int detached = orderRepository.detachAddress(id);
         addressRepository.delete(address);
-        log.info("Endereço {} excluído", id);
+        log.info("Endereço {} excluído; {} pedido(s) mantêm a cópia", id, detached);
     }
 
     public AddressDto lookupCep(String cep) {

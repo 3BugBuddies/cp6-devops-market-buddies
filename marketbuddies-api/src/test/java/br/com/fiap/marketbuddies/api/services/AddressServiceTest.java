@@ -8,8 +8,10 @@ import br.com.fiap.marketbuddies.api.entities.UserEntity;
 import br.com.fiap.marketbuddies.api.exceptions.FieldValidationException;
 import br.com.fiap.marketbuddies.api.exceptions.NotFoundException;
 import br.com.fiap.marketbuddies.api.repositories.AddressRepository;
+import br.com.fiap.marketbuddies.api.repositories.OrderRepository;
 import br.com.fiap.marketbuddies.api.repositories.UserRepository;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 import org.mockito.ArgumentCaptor;
 
 import java.util.Optional;
@@ -17,6 +19,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -31,7 +34,8 @@ class AddressServiceTest {
     private final AddressRepository addressRepository = mock(AddressRepository.class);
     private final UserRepository userRepository = mock(UserRepository.class);
     private final ViaCepClient viaCepClient = mock(ViaCepClient.class);
-    private final AddressService service = new AddressService(addressRepository, userRepository, viaCepClient);
+    private final OrderRepository orderRepository = mock(OrderRepository.class);
+    private final AddressService service = new AddressService(addressRepository, orderRepository, userRepository, viaCepClient);
 
     @Test
     void normalizaCepComHifen() {
@@ -101,17 +105,20 @@ class AddressServiceTest {
                 .isInstanceOf(NotFoundException.class);
         verify(addressRepository, never()).delete(any());
         verify(addressRepository, never()).deleteById(any());
+        verify(orderRepository, never()).detachAddress(any());
     }
 
     @Test
-    void deleteDoDonoApagaOEndereco() {
+    void deleteDoDonoDesvinculaOsPedidosEApagaOEndereco() {
         AddressEntity address = new AddressEntity();
         address.setId(10L);
         when(addressRepository.findByIdAndCustomerId(10L, ANA)).thenReturn(Optional.of(address));
 
         service.delete(10L, ANA);
 
-        verify(addressRepository).delete(address);
+        InOrder ordem = inOrder(orderRepository, addressRepository);
+        ordem.verify(orderRepository).detachAddress(10L);
+        ordem.verify(addressRepository).delete(address);
     }
 
     @Test

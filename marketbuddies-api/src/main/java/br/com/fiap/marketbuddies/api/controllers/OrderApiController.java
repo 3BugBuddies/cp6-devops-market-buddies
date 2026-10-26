@@ -31,7 +31,7 @@ public class OrderApiController {
     @PostMapping
     public ResponseEntity<OrderDto> create(@Valid @RequestBody OrderRequestDto request,
                                            @AuthenticationPrincipal AuthUser user) {
-        OrderDto order = paymentFacade.requestPayment(user.getId(), request.items(), OrderOrigin.API);
+        OrderDto order = paymentFacade.requestPayment(user.getId(), request.addressId(), request.items(), OrderOrigin.API);
         return ResponseEntity.accepted()
                 .location(URI.create("/api/orders/" + order.id()))
                 .body(order);
