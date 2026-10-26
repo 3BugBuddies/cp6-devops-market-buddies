@@ -52,7 +52,15 @@
                                 <td align="right" style="padding:10px 0 10px 8px; border-bottom:1px solid #dde3ec; color:#1b2333; white-space:nowrap;" th:text="${item.subtotal()}">R$ 0,00</td>
                             </tr>
                             <tr>
-                                <td colspan="3" align="right" style="padding:14px 8px 0 0; font-size:15px; font-weight:bold; color:#1b2333;">Total</td>
+                                <td colspan="3" align="right" style="padding:12px 8px 0 0; color:#4a5568;">Subtotal</td>
+                                <td align="right" style="padding:12px 0 0 8px; color:#1b2333; white-space:nowrap;" th:text="${subtotal}">R$ 0,00</td>
+                            </tr>
+                            <tr>
+                                <td colspan="3" align="right" style="padding:4px 8px 0 0; color:#4a5568;">Frete</td>
+                                <td align="right" style="padding:4px 0 0 8px; color:#1b2333; white-space:nowrap;" th:text="${shipping}">R$ 0,00</td>
+                            </tr>
+                            <tr>
+                                <td colspan="3" align="right" style="padding:10px 8px 0 0; font-size:15px; font-weight:bold; color:#1b2333;">Total</td>
                                 <td align="right" style="padding:14px 0 0 8px; font-size:18px; font-weight:bold; color:#1a4fa0; white-space:nowrap;" th:text="${total}">R$ 0,00</td>
                             </tr>
                         </table>

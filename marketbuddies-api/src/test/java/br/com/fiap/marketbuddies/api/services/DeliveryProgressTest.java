@@ -3,6 +3,7 @@ package br.com.fiap.marketbuddies.api.services;
 import br.com.fiap.marketbuddies.api.configs.DeliveryProperties;
 import br.com.fiap.marketbuddies.api.enums.DeliveryStatus;
 import br.com.fiap.marketbuddies.api.enums.OrderStatus;
+import br.com.fiap.marketbuddies.api.repositories.AddressRepository;
 import br.com.fiap.marketbuddies.api.repositories.EmailRepository;
 import br.com.fiap.marketbuddies.api.repositories.OrderRepository;
 import br.com.fiap.marketbuddies.api.repositories.ProductRepository;
@@ -34,7 +35,8 @@ class DeliveryProgressTest {
 
     private final OrderRepository orderRepository = mock(OrderRepository.class);
     private final OrderService orderService = new OrderService(orderRepository, mock(ProductRepository.class),
-            mock(UserRepository.class), mock(EmailRepository.class), clock,
+            mock(UserRepository.class), mock(EmailRepository.class), mock(AddressRepository.class),
+            mock(ShippingCalculator.class), clock,
             new DeliveryProperties(Duration.ofSeconds(20)));
 
     @Test

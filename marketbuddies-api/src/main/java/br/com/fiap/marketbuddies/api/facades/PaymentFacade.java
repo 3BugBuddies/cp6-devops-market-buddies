@@ -32,8 +32,9 @@ public class PaymentFacade {
      * Publica o pedido de pagamento para o {@code PaymentRequestConsumer}, que só o processa depois do commit
      * de {@code createOrder}.
      */
-    public OrderDto requestPayment(Long customerId, List<OrderItemRequestDto> items, OrderOrigin origin) {
-        OrderService.CreatedOrder created = orderService.createOrder(customerId, items, origin);
+    public OrderDto requestPayment(Long customerId, Long addressId, List<OrderItemRequestDto> items,
+                                   OrderOrigin origin) {
+        OrderService.CreatedOrder created = orderService.createOrder(customerId, addressId, items, origin);
         eventPublisher.publishEvent(created.paymentRequest());
         log.info("Pedido {} enviado para pagamento", created.order().id());
         return created.order();

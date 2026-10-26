@@ -1,11 +1,13 @@
 package br.com.fiap.marketbuddies.api.dtos;
 
+import br.com.fiap.marketbuddies.api.entities.DeliveryAddress;
 import br.com.fiap.marketbuddies.api.entities.OrderEntity;
 import br.com.fiap.marketbuddies.api.entities.OrderItemEntity;
 import br.com.fiap.marketbuddies.api.enums.DeliveryStatus;
 import br.com.fiap.marketbuddies.api.enums.OrderOrigin;
 import br.com.fiap.marketbuddies.api.enums.OrderStatus;
 import br.com.fiap.marketbuddies.api.enums.StatusEmail;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 import java.math.BigDecimal;
@@ -51,15 +53,53 @@ public record OrderDto(
                 order.getItems().stream().map(Item::from).toList());
     }
 
-    /** Nulo enquanto o pedido não foi aprovado e em pedidos anteriores à entrega. */
+    /**
+     * Endereço copiado, frete e andamento da entrega. Nulo só em pedido anterior à entrega; {@code status} fica nulo
+     * até a aprovação.
+     */
     public record Delivery(
+            Long addressId,
+            String cep,
+            String street,
+            String number,
+            String complement,
+            String district,
+            String city,
+            String uf,
+            BigDecimal shippingFee,
+            Integer deliveryDays,
             DeliveryStatus status,
             LocalDateTime updatedAt) {
 
         static Delivery from(OrderEntity order) {
-            return order.getDeliveryStatus() == null
-                    ? null
-                    : new Delivery(order.getDeliveryStatus(), order.getDeliveryUpdatedAt());
+            DeliveryAddress copy = order.getDeliveryAddress();
+            if (copy == null && order.getDeliveryStatus() == null) {
+                return null;
+            }
+            boolean hasCopy = copy != null;
+            return new Delivery(
+                    order.getAddress() == null ? null : order.getAddress().getId(),
+                    hasCopy ? copy.getCep() : null,
+                    hasCopy ? copy.getStreet() : null,
+                    hasCopy ? copy.getNumber() : null,
+                    hasCopy ? copy.getComplement() : null,
+                    hasCopy ? copy.getDistrict() : null,
+                    hasCopy ? copy.getCity() : null,
+                    hasCopy ? copy.getUf() : null,
+                    order.getShippingFee(),
+                    order.getDeliveryDays(),
+                    order.getDeliveryStatus(),
+                    order.getDeliveryUpdatedAt());
+        }
+
+        @JsonIgnore
+        public boolean isStarted() {
+            return status != null;
+        }
+
+        @JsonIgnore
+        public boolean isFree() {
+            return shippingFee != null && shippingFee.signum() == 0;
         }
     }
 

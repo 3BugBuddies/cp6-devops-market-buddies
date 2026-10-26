@@ -59,6 +59,8 @@ public class OrderViewController {
         if (!warnings.isEmpty()) {
             redirect.addFlashAttribute("notices", warnings);
         }
-        return "redirect:/checkout";
+        OrderDto.Delivery delivery = orderService.getOrder(id, user.getId(), false).delivery();
+        Long addressId = delivery == null ? null : delivery.addressId();
+        return addressId == null ? "redirect:/checkout" : "redirect:/checkout?addressId=" + addressId;
     }
 }
