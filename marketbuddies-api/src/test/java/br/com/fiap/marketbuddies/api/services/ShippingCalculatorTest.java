@@ -39,10 +39,10 @@ class ShippingCalculatorTest {
     void quoteDevolveZonaTaxaEPrazo() {
         when(zones.findCovering("01310100")).thenReturn(Optional.of(zone("Centro expandido SP", "7.90", 1)));
 
-        ShippingCalculator.Quote quote = calculator.quote("01310100", new BigDecimal("120.00"));
+        ShippingCalculator.Quote quote = calculator.quote("01310100", new BigDecimal("80.00"));
 
         assertThat(quote.zoneName()).isEqualTo("Centro expandido SP");
-        assertThat(quote.fee()).isEqualByComparingTo("0.00");
+        assertThat(quote.fee()).isEqualByComparingTo("7.90");
         assertThat(quote.deliveryDays()).isEqualTo(1);
         assertThat(quote.free()).isFalse();
     }
