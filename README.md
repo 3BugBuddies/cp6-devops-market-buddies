@@ -83,20 +83,6 @@ cp6-devops-market-buddies/
 
 ---
 
-## Benefícios para o negócio
-
-- **Frete calculado na hora.** O cliente vê zona, frete, prazo e total antes de pagar. A gerência muda as faixas de
-  CEP e as taxas pela tela, sem deploy.
-- **Menos erro de endereço.** O ViaCEP preenche o endereço a partir do CEP. O pedido guarda uma cópia do endereço,
-  então editar ou excluir o cadastro não muda o histórico.
-- **Acompanhamento do pedido.** O cliente vê o pagamento e cada etapa da entrega na página do pedido, e recebe o
-  e-mail de confirmação.
-- **Entrega contínua.** Todo merge na `main` compila, roda os testes e publica a nova versão. Se um teste falha, o
-  deploy não acontece.
-- **Infraestrutura reprodutível.** Um script cria todos os recursos na Azure; outro apaga tudo.
-
----
-
 ## Arquitetura macro
 
 ![Arquitetura macro do MarketBuddies na Azure](assets/arquitetura-macro.png)
@@ -230,16 +216,6 @@ pasta grava os ids que a seguinte usa).
 | `PUT` | `/api/products/{id}` | ADMIN | [`put.json`](docs/json/products/put.json) | Atualiza (200) |
 | `DELETE` | `/api/products/{id}` | ADMIN | — | Exclui (204); os itens de pedido perdem a referência |
 
-| Campo | Obrigatório | Regra |
-|-------|:-----------:|-------|
-| `name` | sim | até 80 caracteres |
-| `category` | sim | valor do enum `Category` |
-| `description` | não | até 500 caracteres |
-| `cost` | sim | maior que 0, 2 casas |
-| `markupPercentage` | sim | 0 a 500 |
-| `discountPercentage` | sim | 0 a 90 (0 = sem oferta) |
-| `stock` | sim | 0 a 999999 |
-
 O preço de venda é calculado pela API a partir de custo, markup e desconto.
 
 ### Endereços — `TB_ADDRESSES`
@@ -253,16 +229,6 @@ O preço de venda é calculado pela API a partir de custo, markup e desconto.
 | `PUT` | `/api/addresses/{id}` | CUSTOMER | [`put.json`](docs/json/addresses/put.json) | Atualiza (200) |
 | `DELETE` | `/api/addresses/{id}` | CUSTOMER | — | Exclui (204); os pedidos mantêm a cópia |
 
-| Campo | Obrigatório | Regra |
-|-------|:-----------:|-------|
-| `label` | não | até 40 caracteres ("Casa", "Trabalho") |
-| `cep` | sim | 8 dígitos; aceita com ou sem hífen |
-| `street` | sim | até 120 caracteres |
-| `number` | sim | até 10 caracteres |
-| `complement` | não | até 60 caracteres |
-| `district`, `city` | sim | até 60 caracteres |
-| `uf` | sim | 2 letras maiúsculas |
-
 ### Zonas de entrega — `TB_DELIVERY_ZONES`
 
 | Método | Rota | Perfil | JSON | Descrição |
@@ -272,13 +238,6 @@ O preço de venda é calculado pela API a partir de custo, markup e desconto.
 | `POST` | `/api/delivery-zones` | ADMIN | [`post.json`](docs/json/delivery-zones/post.json)<br>[`post-sobreposta.json`](docs/json/delivery-zones/post-sobreposta.json) | Cria (201; 400 faixa inválida ou sobreposta; 409 nome repetido) |
 | `PUT` | `/api/delivery-zones/{id}` | ADMIN | [`put.json`](docs/json/delivery-zones/put.json) | Atualiza (200) |
 | `DELETE` | `/api/delivery-zones/{id}` | ADMIN | — | Exclui (204); pedidos já feitos não mudam |
-
-| Campo | Obrigatório | Regra |
-|-------|:-----------:|-------|
-| `name` | sim | até 60 caracteres, único |
-| `cepStart`, `cepEnd` | sim | 8 dígitos; início ≤ fim; a faixa não pode sobrepor outra zona |
-| `fee` | sim | 0 ou mais, 2 casas |
-| `deliveryDays` | sim | 1 a 30 |
 
 `post-sobreposta.json` só dá 400 com a zona de `delivery-zones/post.json` cadastrada.
 
@@ -292,13 +251,7 @@ O preço de venda é calculado pela API a partir de custo, markup e desconto.
 | `POST` | `/api/orders/{id}/cancel` | CUSTOMER (dono) | — | Cancela até a entrega sair |
 | `DELETE` | `/api/orders/{id}` | ADMIN | — | Exclui pedido recusado ou cancelado |
 
-| Campo | Obrigatório | Regra |
-|-------|:-----------:|-------|
-| `addressId` | sim | endereço do próprio cliente (404 se não for) |
-| `items[].productId` | sim | produto existente |
-| `items[].quantity` | sim | 1 ou mais; sem estoque → 409 e nada é reservado |
-
-CEP fora de todas as zonas → 422 "Não entregamos no CEP …".
+Sem estoque → 409, e nada é reservado. CEP fora de todas as zonas → 422 "Não entregamos no CEP …".
 
 Com o produto de `products/put.json` (R$ 13,50), `orders/post.json` dá 2 × 13,50 + frete 7,90 = R$ 34,90 e é
 aprovado. `orders/post-acima-do-limite.json` dá 40 × 13,50 = R$ 540,00, com frete grátis, e é recusado ("Valor acima
@@ -327,23 +280,14 @@ senha atual; senha atual errada → 400 `errors.currentPassword`.
 
 ## Regras de negócio
 
-| Regra | Como funciona |
-|-------|---------------|
-| Frete por faixa de CEP | O CEP do endereço precisa cair numa zona; a zona dá a taxa e o prazo. Sem zona, o pedido não é criado (422). |
-| Frete grátis | Itens a partir de **R$ 150,00** não pagam frete (`ShippingCalculator.FREE_SHIPPING_FROM`). |
-| Total do pedido | Itens + frete. O endereço é copiado para o pedido no momento da compra. |
-| Limite do banco embutido | O pagamento interno (regra do Tranquilo Bank) recusa total acima de **R$ 500,00**. Recusado, o estoque volta. |
-| Pagamento assíncrono | A autorização roda cerca de 3 s depois de criar o pedido. Sem resposta em 5 min, o pedido é recusado. |
-| Entrega | Depois da aprovação: `EM_SEPARACAO` → `SAIU_PARA_ENTREGA` → `ENTREGUE`, **20 s** por etapa (o job confere a cada 5 s). |
-| E-mail | Só para pedido aprovado, pelo Gmail. Cada tentativa fica em `TB_EMAILS` (`SENT` ou `ERROR`). |
-
-Zonas criadas na primeira subida:
-
-| Zona | Faixa de CEP | Taxa | Prazo |
-|------|--------------|-----:|------:|
-| Centro expandido SP | 01000-000 a 05999-999 | R$ 7,90 | 1 dia |
-| Grande SP oeste | 06000-000 a 06999-999 | R$ 14,90 | 2 dias |
-| Zona leste SP | 08000-000 a 08499-999 | R$ 9,90 | 1 dia |
+- **Frete:** o CEP do endereço precisa cair numa zona de entrega (taxa e prazo da zona); sem zona, 422. Acima do
+  valor de `ShippingCalculator.FREE_SHIPPING_FROM`, o frete é grátis. O endereço é copiado para o pedido.
+- **Pagamento:** autorizado dentro da API, cerca de 3 s depois do pedido. Total acima de R$ 500,00 é recusado e o
+  estoque volta.
+- **Entrega:** depois da aprovação, `EM_SEPARACAO` → `SAIU_PARA_ENTREGA` → `ENTREGUE`, uma etapa a cada 20 s.
+- **E-mail:** só para pedido aprovado, pelo Gmail; cada tentativa fica em `TB_EMAILS` (`SENT` ou `ERROR`).
+- **Zonas da primeira subida:** Centro expandido SP (01000-000 a 05999-999, R$ 7,90), Grande SP oeste
+  (06000-000 a 06999-999, R$ 14,90) e Zona leste SP (08000-000 a 08499-999, R$ 9,90).
 
 ---
 
@@ -404,41 +348,11 @@ bash scripts/destroy.sh
 
 ---
 
-## How To — rodar localmente
-
-Localmente o banco é um PostgreSQL em Docker (a nuvem usa o Azure SQL).
-
-```bash
-git clone https://github.com/3BugBuddies/cp6-devops-market-buddies.git
-cd cp6-devops-market-buddies
-docker compose --profile app up -d --build
-```
-
-A API sobe em http://localhost:8080. Para subir só o banco e rodar a API pela IDE: `docker compose up -d`.
-Para mudar algum valor (Gmail, admin, JWT), copie `.env.example` para `.env` e preencha.
-
----
-
 ## Testes
 
-```bash
-mvn -f marketbuddies-api/pom.xml test
-```
-
-Testes unitários, sem banco e sem rede. A pipeline roda os mesmos testes no `clean package` e publica o resultado.
-
-| Classe | O que cobre |
-|--------|-------------|
-| `ShippingCalculatorTest` | frete grátis a partir de R$ 150,00; zona inexistente |
-| `TranquiloBankServiceTest` | limite de R$ 500,00 e código de autorização |
-| `PaymentRequestConsumerTest` | aprovado e recusado chamam o fluxo certo |
-| `OrderServiceTest` | cópia do endereço, total com frete, endereço de outro cliente, fora de zona |
-| `AddressServiceTest` | normalização do CEP, dono do endereço, exclusão |
-| `DeliveryZoneServiceTest` | faixa invertida e sobreposição de zonas |
-| `DeliveryProgressTest` | avanço da entrega por etapa; aprovação abre a entrega, recusa não |
-| `ViaCepClientTest` | resposta do ViaCEP, CEP inexistente e timeout |
-
-Ficam em `marketbuddies-api/src/test/java/br/com/fiap/marketbuddies/api/`.
+`mvn -f marketbuddies-api/pom.xml test` roda os testes unitários (JUnit, sem banco e sem rede), em
+`marketbuddies-api/src/test/java/`. A pipeline roda os mesmos testes no `clean package` e publica o resultado na aba
+**Tests**.
 
 ---
 
@@ -485,19 +399,11 @@ Depois de excluir um endereço, o pedido continua com `delivery_*` preenchido e 
 | ADMIN | `admin@marketbuddies.com` | valor de `ADMIN_PASSWORD` (local: `admin123`) |
 
 A conta de cliente é criada pelo seed (Ana Souza), com um endereço na Avenida Paulista. Na nuvem, a senha do ADMIN
-é a variável secreta `ADMIN_PASSWORD` da pipeline e vai no `.txt` da entrega.
+é a variável secreta `ADMIN_PASSWORD` da pipeline e vai no PDF da entrega.
 
 ---
 
 ## Tecnologias
 
-- Java 21 e Spring Boot 4.1.1 (Web MVC, Data JPA, Security, Validation, Mail, Thymeleaf)
-- JWT (jjwt)
-- Hibernate
-- Azure SQL Database na nuvem; PostgreSQL em Docker no desenvolvimento (os dois drivers no mesmo JAR; o dialeto vem da `DB_URL`)
-- Azure Web App Linux, App Service Plan, Application Insights
-- Azure DevOps: Boards, Repos e Pipelines (YAML)
-- Azure CLI
-- ViaCEP e Gmail SMTP
-- Chart.js (dashboard)
-- Maven, JUnit e Postman
+Java 21, Spring Boot 4.1.1, Hibernate, JWT, Thymeleaf, Azure SQL, Azure Web App, Application Insights, Azure DevOps
+(Boards, Repos, Pipelines YAML), Azure CLI, ViaCEP, Gmail SMTP, Maven, JUnit e Postman.
