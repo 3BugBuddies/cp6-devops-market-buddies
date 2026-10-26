@@ -56,6 +56,34 @@ A solução é um único deployable: telas Thymeleaf e rotas `/api/**` no mesmo 
 
 ---
 
+## Estrutura do repositório
+
+```
+cp6-devops-market-buddies/
+├── azure-pipeline.yml          pipeline CI/CD (estágios CI e CD)
+├── script.sql                  DDL das tabelas no Azure SQL
+├── integrantes.txt             nomes, RMs e links da entrega
+├── infra/
+│   ├── infra-app.sh            cria os recursos na Azure (rodar uma vez)
+│   └── destroy.sh              apaga o resource group
+├── docs/
+│   ├── pipeline.md             ordem de execução e variáveis
+│   ├── arquitetura/            fonte do desenho de arquitetura
+│   ├── json/                   corpo de cada request de escrita dos CRUDs
+│   └── postman/                coleção do Postman com os mesmos corpos
+├── assets/                     imagens do README
+├── docker-compose.yml          PostgreSQL local (e a API no profile app)
+├── .env.example                modelo das variáveis locais
+└── marketbuddies-api/          API Spring Boot
+    ├── pom.xml
+    └── src/
+        ├── main/java/…/api/    controllers, services, entities, repositories, dtos, clients, configs
+        ├── main/resources/     application.yaml, telas Thymeleaf, CSS e JS
+        └── test/java/…/api/    testes unitários
+```
+
+---
+
 ## Benefícios para o negócio
 
 - **Frete calculado na hora.** O cliente vê zona, frete, prazo e total antes de pagar. A gerência muda as faixas de
@@ -169,23 +197,38 @@ Base URL: `https://marketbuddies-rm563925.azurewebsites.net` (local: `http://loc
 Autenticação: `POST /api/auth/login` devolve `accessToken`; as demais rotas usam `Authorization: Bearer <token>`.
 Erros voltam em JSON com `status`, `message`, `path` e `errors` por campo.
 
+**JSONs e coleção do Postman.** A coluna JSON aponta o corpo de cada request de escrita, em
+[`docs/json/`](docs/json/). A coleção
+[`docs/postman/marketbuddies.postman_collection.json`](docs/postman/marketbuddies.postman_collection.json) usa os
+mesmos corpos: importe no Postman, preencha `{{adminPassword}}` e rode as pastas em ordem no Collection Runner (cada
+pasta grava os ids que a seguinte usa).
+
+- Ids: `addressId` e `productId` valem `1` nos arquivos. Troque pelos ids criados; na coleção viram `{{addressId}}`
+  e `{{productId}}`.
+- Senha do ADMIN: `login-admin.json` traz `{{adminPassword}}`. Local é `admin123`; na nuvem é a variável secreta
+  `ADMIN_PASSWORD` da pipeline.
+- Cliente de teste: a coleção troca o e-mail de `signup.json`, `login-cliente-teste.json`, `put-me.json` e
+  `put-admin.json` por um e-mail com timestamp, para rodar várias vezes. O `PUT /me` usa esse cliente, e não a conta
+  do seed, para não trocar a senha `cliente123`.
+- Valores monetários vão como número JSON (`24.90`). CEP aceita com ou sem hífen e é gravado só com dígitos.
+
 ### Autenticação
 
-| Método | Rota | Perfil | Descrição |
-|--------|------|--------|-----------|
-| `POST` | `/api/auth/signup` | público | Cadastra um cliente (201; 409 se o e-mail já existe) |
-| `POST` | `/api/auth/login` | público | Devolve o token JWT (200; 401 se inválido) |
-| `GET` | `/api/auth/me` | autenticado | Dados do usuário do token |
+| Método | Rota | Perfil | JSON | Descrição |
+|--------|------|--------|------|-----------|
+| `POST` | `/api/auth/signup` | público | [`signup.json`](docs/json/auth/signup.json)<br>[`signup-email-duplicado.json`](docs/json/auth/signup-email-duplicado.json) | Cadastra um cliente (201; 409 se o e-mail já existe) |
+| `POST` | `/api/auth/login` | público | [`login-cliente.json`](docs/json/auth/login-cliente.json)<br>[`login-admin.json`](docs/json/auth/login-admin.json)<br>[`login-cliente-teste.json`](docs/json/auth/login-cliente-teste.json)<br>[`login-senha-errada.json`](docs/json/auth/login-senha-errada.json) | Devolve o token JWT (200; 401 se inválido) |
+| `GET` | `/api/auth/me` | autenticado | — | Dados do usuário do token |
 
 ### Produtos — `TB_PRODUCTS`
 
-| Método | Rota | Perfil | Descrição |
-|--------|------|--------|-----------|
-| `GET` | `/api/products?search=&category=` | público | Lista o catálogo, com filtros opcionais |
-| `GET` | `/api/products/{id}` | público | Busca por id (404 se não existe) |
-| `POST` | `/api/products` | ADMIN | Cria (201) |
-| `PUT` | `/api/products/{id}` | ADMIN | Atualiza (200) |
-| `DELETE` | `/api/products/{id}` | ADMIN | Exclui (204); os itens de pedido perdem a referência |
+| Método | Rota | Perfil | JSON | Descrição |
+|--------|------|--------|------|-----------|
+| `GET` | `/api/products?search=&category=` | público | — | Lista o catálogo, com filtros opcionais |
+| `GET` | `/api/products/{id}` | público | — | Busca por id (404 se não existe) |
+| `POST` | `/api/products` | ADMIN | [`post.json`](docs/json/products/post.json) | Cria (201) |
+| `PUT` | `/api/products/{id}` | ADMIN | [`put.json`](docs/json/products/put.json) | Atualiza (200) |
+| `DELETE` | `/api/products/{id}` | ADMIN | — | Exclui (204); os itens de pedido perdem a referência |
 
 | Campo | Obrigatório | Regra |
 |-------|:-----------:|-------|
@@ -201,14 +244,14 @@ O preço de venda é calculado pela API a partir de custo, markup e desconto.
 
 ### Endereços — `TB_ADDRESSES`
 
-| Método | Rota | Perfil | Descrição |
-|--------|------|--------|-----------|
-| `GET` | `/api/addresses` | CUSTOMER | Lista os endereços do cliente logado |
-| `GET` | `/api/addresses/{id}` | CUSTOMER | Busca por id (404 se não existe ou é de outro cliente) |
-| `GET` | `/api/addresses/cep/{cep}` | CUSTOMER | Consulta o ViaCEP (404 CEP não encontrado; 502 ViaCEP fora) |
-| `POST` | `/api/addresses` | CUSTOMER | Cria (201) |
-| `PUT` | `/api/addresses/{id}` | CUSTOMER | Atualiza (200) |
-| `DELETE` | `/api/addresses/{id}` | CUSTOMER | Exclui (204); os pedidos mantêm a cópia |
+| Método | Rota | Perfil | JSON | Descrição |
+|--------|------|--------|------|-----------|
+| `GET` | `/api/addresses` | CUSTOMER | — | Lista os endereços do cliente logado |
+| `GET` | `/api/addresses/{id}` | CUSTOMER | — | Busca por id (404 se não existe ou é de outro cliente) |
+| `GET` | `/api/addresses/cep/{cep}` | CUSTOMER | — | Consulta o ViaCEP (404 CEP não encontrado; 502 ViaCEP fora) |
+| `POST` | `/api/addresses` | CUSTOMER | [`post.json`](docs/json/addresses/post.json) | Cria (201) |
+| `PUT` | `/api/addresses/{id}` | CUSTOMER | [`put.json`](docs/json/addresses/put.json) | Atualiza (200) |
+| `DELETE` | `/api/addresses/{id}` | CUSTOMER | — | Exclui (204); os pedidos mantêm a cópia |
 
 | Campo | Obrigatório | Regra |
 |-------|:-----------:|-------|
@@ -222,13 +265,13 @@ O preço de venda é calculado pela API a partir de custo, markup e desconto.
 
 ### Zonas de entrega — `TB_DELIVERY_ZONES`
 
-| Método | Rota | Perfil | Descrição |
-|--------|------|--------|-----------|
-| `GET` | `/api/delivery-zones` | ADMIN | Lista as zonas |
-| `GET` | `/api/delivery-zones/{id}` | ADMIN | Busca por id |
-| `POST` | `/api/delivery-zones` | ADMIN | Cria (201; 400 faixa inválida ou sobreposta; 409 nome repetido) |
-| `PUT` | `/api/delivery-zones/{id}` | ADMIN | Atualiza (200) |
-| `DELETE` | `/api/delivery-zones/{id}` | ADMIN | Exclui (204); pedidos já feitos não mudam |
+| Método | Rota | Perfil | JSON | Descrição |
+|--------|------|--------|------|-----------|
+| `GET` | `/api/delivery-zones` | ADMIN | — | Lista as zonas |
+| `GET` | `/api/delivery-zones/{id}` | ADMIN | — | Busca por id |
+| `POST` | `/api/delivery-zones` | ADMIN | [`post.json`](docs/json/delivery-zones/post.json)<br>[`post-sobreposta.json`](docs/json/delivery-zones/post-sobreposta.json) | Cria (201; 400 faixa inválida ou sobreposta; 409 nome repetido) |
+| `PUT` | `/api/delivery-zones/{id}` | ADMIN | [`put.json`](docs/json/delivery-zones/put.json) | Atualiza (200) |
+| `DELETE` | `/api/delivery-zones/{id}` | ADMIN | — | Exclui (204); pedidos já feitos não mudam |
 
 | Campo | Obrigatório | Regra |
 |-------|:-----------:|-------|
@@ -237,15 +280,17 @@ O preço de venda é calculado pela API a partir de custo, markup e desconto.
 | `fee` | sim | 0 ou mais, 2 casas |
 | `deliveryDays` | sim | 1 a 30 |
 
+`post-sobreposta.json` só dá 400 com a zona de `delivery-zones/post.json` cadastrada.
+
 ### Pedidos — `TB_ORDERS` e `TB_ORDER_ITEMS`
 
-| Método | Rota | Perfil | Descrição |
-|--------|------|--------|-----------|
-| `POST` | `/api/orders` | CUSTOMER | Cria o pedido e pede o pagamento (202 Accepted) |
-| `GET` | `/api/orders` | autenticado | Pedidos do cliente; o ADMIN vê todos |
-| `GET` | `/api/orders/{id}` | autenticado | Detalhe com itens, pagamento e entrega |
-| `POST` | `/api/orders/{id}/cancel` | CUSTOMER (dono) | Cancela até a entrega sair |
-| `DELETE` | `/api/orders/{id}` | ADMIN | Exclui pedido recusado ou cancelado |
+| Método | Rota | Perfil | JSON | Descrição |
+|--------|------|--------|------|-----------|
+| `POST` | `/api/orders` | CUSTOMER | [`post.json`](docs/json/orders/post.json)<br>[`post-acima-do-limite.json`](docs/json/orders/post-acima-do-limite.json) | Cria o pedido e pede o pagamento (202 Accepted) |
+| `GET` | `/api/orders` | autenticado | — | Pedidos do cliente; o ADMIN vê todos |
+| `GET` | `/api/orders/{id}` | autenticado | — | Detalhe com itens, pagamento e entrega |
+| `POST` | `/api/orders/{id}/cancel` | CUSTOMER (dono) | — | Cancela até a entrega sair |
+| `DELETE` | `/api/orders/{id}` | ADMIN | — | Exclui pedido recusado ou cancelado |
 
 | Campo | Obrigatório | Regra |
 |-------|:-----------:|-------|
@@ -255,23 +300,28 @@ O preço de venda é calculado pela API a partir de custo, markup e desconto.
 
 CEP fora de todas as zonas → 422 "Não entregamos no CEP …".
 
+Com o produto de `products/put.json` (R$ 13,50), `orders/post.json` dá 2 × 13,50 + frete 7,90 = R$ 34,90 e é
+aprovado. `orders/post-acima-do-limite.json` dá 40 × 13,50 = R$ 540,00, com frete grátis, e é recusado ("Valor acima
+do limite de R$ 500,00").
+
 ### E-mails — `TB_EMAILS`
 
-| Método | Rota | Perfil | Descrição |
-|--------|------|--------|-----------|
-| `GET` | `/api/emails` | ADMIN | Lista os e-mails registrados |
+| Método | Rota | Perfil | JSON | Descrição |
+|--------|------|--------|------|-----------|
+| `GET` | `/api/emails` | ADMIN | — | Lista os e-mails registrados |
 
 ### Usuários — `TB_USERS`
 
-| Método | Rota | Perfil | Descrição |
-|--------|------|--------|-----------|
-| `GET` | `/api/users` | ADMIN | Lista os usuários |
-| `GET` | `/api/users/{id}` | ADMIN | Busca por id |
-| `PUT` | `/api/users/me` | autenticado | Edita nome, e-mail e senha, com a senha atual |
-| `PUT` | `/api/users/{id}` | ADMIN | Edita nome e e-mail |
-| `DELETE` | `/api/users/{id}` | ADMIN | Exclui; bloqueado se o cliente tem pedido |
+| Método | Rota | Perfil | JSON | Descrição |
+|--------|------|--------|------|-----------|
+| `GET` | `/api/users` | ADMIN | — | Lista os usuários |
+| `GET` | `/api/users/{id}` | ADMIN | — | Busca por id |
+| `PUT` | `/api/users/me` | autenticado | [`put-me.json`](docs/json/users/put-me.json)<br>[`put-me-senha-errada.json`](docs/json/users/put-me-senha-errada.json) | Edita nome, e-mail e senha, com a senha atual |
+| `PUT` | `/api/users/{id}` | ADMIN | [`put-admin.json`](docs/json/users/put-admin.json) | Edita nome e e-mail |
+| `DELETE` | `/api/users/{id}` | ADMIN | — | Exclui; bloqueado se o cliente tem pedido |
 
-Hoje o cadastro de usuário é feito por `POST /api/auth/signup`.
+O cadastro de usuário é o `POST /api/auth/signup`. No `PUT /me`, `newPassword` e `confirmPassword` vazios mantêm a
+senha atual; senha atual errada → 400 `errors.currentPassword`.
 
 ---
 
@@ -427,16 +477,6 @@ Depois de excluir um endereço, o pedido continua com `delivery_*` preenchido e 
 
 ---
 
-## JSONs dos CRUDs
-
-- Pasta [`json/`](json/): um arquivo por operação de escrita de cada tabela.
-- Coleção do Postman: [`postman/marketbuddies.postman_collection.json`](postman/marketbuddies.postman_collection.json)
-  (atualizada na T8).
-
-Importe a coleção no Postman e rode primeiro o login: ele grava o token usado nas outras requests.
-
----
-
 ## Credenciais de teste
 
 | Perfil | E-mail | Senha |
@@ -446,31 +486,6 @@ Importe a coleção no Postman e rode primeiro o login: ele grava o token usado 
 
 A conta de cliente é criada pelo seed (Ana Souza), com um endereço na Avenida Paulista. Na nuvem, a senha do ADMIN
 é a variável secreta `ADMIN_PASSWORD` da pipeline e vai no `.txt` da entrega.
-
----
-
-## Estrutura do repositório
-
-```
-cp6-devops-market-buddies/
-├── azure-pipeline.yml          pipeline CI/CD (estágios CI e CD)
-├── infra/
-│   ├── infra-app.sh            cria os recursos na Azure (rodar uma vez)
-│   └── destroy.sh              apaga o resource group
-├── docs/
-│   ├── pipeline.md             ordem de execução e variáveis
-│   └── arquitetura/            fonte do desenho de arquitetura
-├── assets/                     imagens do README
-├── postman/                    coleção do Postman
-├── docker-compose.yml          PostgreSQL local (e a API no profile app)
-├── .env.example                modelo das variáveis locais
-└── marketbuddies-api/          API Spring Boot
-    ├── pom.xml
-    └── src/
-        ├── main/java/…/api/    controllers, services, entities, repositories, dtos, clients, configs
-        ├── main/resources/     application.yaml, telas Thymeleaf, CSS e JS
-        └── test/java/…/api/    testes unitários
-```
 
 ---
 

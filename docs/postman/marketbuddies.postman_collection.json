@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "8f2d6c1e-4b7a-4e93-a5d1-6c0b9e3f7a21",
     "name": "MarketBuddies API — CP6 (DevOps)",
-    "description": "CRUDs do MarketBuddies (CP6 DevOps Tools e Cloud Computing).\n\n{{api}} aponta para o Web App na Azure. Para rodar local, troque {{api}} para http://localhost:8080.\n\nAntes de rodar, preencha só {{adminPassword}} (local: admin123; nuvem: ADMIN_PASSWORD da pipeline).\n\nRode tudo em ordem no Collection Runner: cada pasta grava os ids que a seguinte usa. Os corpos são os arquivos da pasta json/ do repositório, com os ids trocados pelas variáveis.\n\nDepende do seed: cliente@marketbuddies.com / cliente123 com acesso ao CEP 01310-100, coberto pela zona 'Centro expandido SP'. As consultas de pedido esperam 5 s para o pagamento responder.",
+    "description": "CRUDs do MarketBuddies (CP6 DevOps Tools e Cloud Computing).\n\n{{api}} aponta para o Web App na Azure. Para rodar local, troque {{api}} para http://localhost:8080.\n\nAntes de rodar, preencha só {{adminPassword}} (local: admin123; nuvem: ADMIN_PASSWORD da pipeline).\n\nRode tudo em ordem no Collection Runner: cada pasta grava os ids que a seguinte usa. Os corpos são os arquivos da pasta docs/json/ do repositório, com os ids trocados pelas variáveis.\n\nDepende do seed: cliente@marketbuddies.com / cliente123 com acesso ao CEP 01310-100, coberto pela zona 'Centro expandido SP'. As consultas de pedido esperam 5 s para o pagamento responder.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -51,7 +51,7 @@
                 "login"
               ]
             },
-            "description": "Cliente do seed (Ana Souza). Guarda o token em {{token}}.\n\nCorpo: `json/auth/login-cliente.json`.",
+            "description": "Cliente do seed (Ana Souza). Guarda o token em {{token}}.\n\nCorpo: `docs/json/auth/login-cliente.json`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"cliente@marketbuddies.com\",\n  \"password\": \"cliente123\"\n}",
@@ -103,7 +103,7 @@
                 "login"
               ]
             },
-            "description": "Preencha {{adminPassword}} antes (local: admin123; nuvem: ADMIN_PASSWORD da pipeline). Guarda {{adminToken}}.\n\nCorpo: `json/auth/login-admin.json`.",
+            "description": "Preencha {{adminPassword}} antes (local: admin123; nuvem: ADMIN_PASSWORD da pipeline). Guarda {{adminToken}}.\n\nCorpo: `docs/json/auth/login-admin.json`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"admin@marketbuddies.com\",\n  \"password\": \"{{adminPassword}}\"\n}",
@@ -154,7 +154,7 @@
                 "login"
               ]
             },
-            "description": "Corpo: `json/auth/login-senha-errada.json`.",
+            "description": "Corpo: `docs/json/auth/login-senha-errada.json`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"cliente@marketbuddies.com\",\n  \"password\": \"senha-errada\"\n}",
@@ -220,7 +220,7 @@
                 "signup"
               ]
             },
-            "description": "Cria o cliente que a pasta 6 edita e exclui. O e-mail ganha um timestamp a cada execução ({{signupEmail}}), então a coleção pode rodar várias vezes. Guarda o id em {{userId}}.\n\nCorpo: `json/auth/signup.json`.",
+            "description": "Cria o cliente que a pasta 6 edita e exclui. O e-mail ganha um timestamp a cada execução ({{signupEmail}}), então a coleção pode rodar várias vezes. Guarda o id em {{userId}}.\n\nCorpo: `docs/json/auth/signup.json`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"fullName\": \"Cliente Postman\",\n  \"email\": \"{{signupEmail}}\",\n  \"password\": \"teste123\",\n  \"confirmPassword\": \"teste123\"\n}",
@@ -271,7 +271,7 @@
                 "signup"
               ]
             },
-            "description": "Corpo: `json/auth/signup-email-duplicado.json`.",
+            "description": "Corpo: `docs/json/auth/signup-email-duplicado.json`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"fullName\": \"Ana Souza\",\n  \"email\": \"cliente@marketbuddies.com\",\n  \"password\": \"teste123\",\n  \"confirmPassword\": \"teste123\"\n}",
@@ -320,7 +320,7 @@
                 "login"
               ]
             },
-            "description": "Guarda o token do cliente de teste em {{testToken}}.\n\nCorpo: `json/auth/login-cliente-teste.json`.",
+            "description": "Guarda o token do cliente de teste em {{testToken}}.\n\nCorpo: `docs/json/auth/login-cliente-teste.json`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"{{signupEmail}}\",\n  \"password\": \"teste123\"\n}",
@@ -431,7 +431,7 @@
                 "products"
               ]
             },
-            "description": "Preço calculado pela API: custo 10,00 + markup 50% = 15,00. Guarda {{productId}}.\n\nCorpo: `json/products/post.json`.",
+            "description": "Preço calculado pela API: custo 10,00 + markup 50% = 15,00. Guarda {{productId}}.\n\nCorpo: `docs/json/products/post.json`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Suco de uva integral 1 L\",\n  \"category\": \"BEVERAGES\",\n  \"description\": \"Criado pela coleção do Postman.\",\n  \"cost\": 10.00,\n  \"markupPercentage\": 50,\n  \"discountPercentage\": 0,\n  \"stock\": 500\n}",
@@ -480,7 +480,7 @@
                 "products"
               ]
             },
-            "description": "Só o ADMIN escreve no catálogo.\n\nCorpo: `json/products/post.json`.",
+            "description": "Só o ADMIN escreve no catálogo.\n\nCorpo: `docs/json/products/post.json`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Suco de uva integral 1 L\",\n  \"category\": \"BEVERAGES\",\n  \"description\": \"Criado pela coleção do Postman.\",\n  \"cost\": 10.00,\n  \"markupPercentage\": 50,\n  \"discountPercentage\": 0,\n  \"stock\": 500\n}",
@@ -620,7 +620,7 @@
                 "{{productId}}"
               ]
             },
-            "description": "Entra em oferta de 10%: preço final 13,50. Os pedidos da pasta 5 usam este produto.\n\nCorpo: `json/products/put.json`.",
+            "description": "Entra em oferta de 10%: preço final 13,50. Os pedidos da pasta 5 usam este produto.\n\nCorpo: `docs/json/products/put.json`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Suco de uva integral 1 L\",\n  \"category\": \"BEVERAGES\",\n  \"description\": \"Atualizado pela coleção do Postman: 10% de oferta.\",\n  \"cost\": 10.00,\n  \"markupPercentage\": 50,\n  \"discountPercentage\": 10,\n  \"stock\": 480\n}",
@@ -672,7 +672,7 @@
                 "products"
               ]
             },
-            "description": "Mesmo corpo do 'Criar produto'; é o registro que o DELETE abaixo apaga, para o produto principal seguir disponível para os pedidos. Guarda {{productTempId}}.\n\nCorpo: `json/products/post.json`.",
+            "description": "Mesmo corpo do 'Criar produto'; é o registro que o DELETE abaixo apaga, para o produto principal seguir disponível para os pedidos. Guarda {{productTempId}}.\n\nCorpo: `docs/json/products/post.json`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Suco de uva integral 1 L\",\n  \"category\": \"BEVERAGES\",\n  \"description\": \"Criado pela coleção do Postman.\",\n  \"cost\": 10.00,\n  \"markupPercentage\": 50,\n  \"discountPercentage\": 0,\n  \"stock\": 500\n}",
@@ -845,7 +845,7 @@
                 "addresses"
               ]
             },
-            "description": "CEP aceito com ou sem hífen; gravado só com dígitos. Guarda {{addressId}}.\n\nCorpo: `json/addresses/post.json`.",
+            "description": "CEP aceito com ou sem hífen; gravado só com dígitos. Guarda {{addressId}}.\n\nCorpo: `docs/json/addresses/post.json`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"label\": \"Trabalho\",\n  \"cep\": \"01310-100\",\n  \"street\": \"Avenida Paulista\",\n  \"number\": \"1578\",\n  \"complement\": \"Sala 12\",\n  \"district\": \"Bela Vista\",\n  \"city\": \"São Paulo\",\n  \"uf\": \"SP\"\n}",
@@ -894,7 +894,7 @@
                 "addresses"
               ]
             },
-            "description": "Endereço é do cliente; o ADMIN não tem.\n\nCorpo: `json/addresses/post.json`.",
+            "description": "Endereço é do cliente; o ADMIN não tem.\n\nCorpo: `docs/json/addresses/post.json`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"label\": \"Trabalho\",\n  \"cep\": \"01310-100\",\n  \"street\": \"Avenida Paulista\",\n  \"number\": \"1578\",\n  \"complement\": \"Sala 12\",\n  \"district\": \"Bela Vista\",\n  \"city\": \"São Paulo\",\n  \"uf\": \"SP\"\n}",
@@ -1031,7 +1031,7 @@
                 "{{addressId}}"
               ]
             },
-            "description": "Corpo: `json/addresses/put.json`.",
+            "description": "Corpo: `docs/json/addresses/put.json`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"label\": \"Trabalho\",\n  \"cep\": \"01310-100\",\n  \"street\": \"Avenida Paulista\",\n  \"number\": \"1578\",\n  \"complement\": \"Sala 15\",\n  \"district\": \"Bela Vista\",\n  \"city\": \"São Paulo\",\n  \"uf\": \"SP\"\n}",
@@ -1083,7 +1083,7 @@
                 "addresses"
               ]
             },
-            "description": "Mesmo corpo do 'Criar endereço'; é o registro que o DELETE abaixo apaga, para o endereço principal seguir disponível para os pedidos. Guarda {{addressTempId}}.\n\nCorpo: `json/addresses/post.json`.",
+            "description": "Mesmo corpo do 'Criar endereço'; é o registro que o DELETE abaixo apaga, para o endereço principal seguir disponível para os pedidos. Guarda {{addressTempId}}.\n\nCorpo: `docs/json/addresses/post.json`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"label\": \"Trabalho\",\n  \"cep\": \"01310-100\",\n  \"street\": \"Avenida Paulista\",\n  \"number\": \"1578\",\n  \"complement\": \"Sala 12\",\n  \"district\": \"Bela Vista\",\n  \"city\": \"São Paulo\",\n  \"uf\": \"SP\"\n}",
@@ -1218,7 +1218,7 @@
                 "delivery-zones"
               ]
             },
-            "description": "Guarda {{zoneId}}.\n\nCorpo: `json/delivery-zones/post.json`.",
+            "description": "Guarda {{zoneId}}.\n\nCorpo: `docs/json/delivery-zones/post.json`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Rio de Janeiro capital\",\n  \"cepStart\": \"20000-000\",\n  \"cepEnd\": \"23799-999\",\n  \"fee\": 24.90,\n  \"deliveryDays\": 3\n}",
@@ -1267,7 +1267,7 @@
                 "delivery-zones"
               ]
             },
-            "description": "Corpo: `json/delivery-zones/post.json`.",
+            "description": "Corpo: `docs/json/delivery-zones/post.json`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Rio de Janeiro capital\",\n  \"cepStart\": \"20000-000\",\n  \"cepEnd\": \"23799-999\",\n  \"fee\": 24.90,\n  \"deliveryDays\": 3\n}",
@@ -1321,7 +1321,7 @@
                 "delivery-zones"
               ]
             },
-            "description": "Corpo: `json/delivery-zones/post.json`.",
+            "description": "Corpo: `docs/json/delivery-zones/post.json`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Rio de Janeiro capital\",\n  \"cepStart\": \"20000-000\",\n  \"cepEnd\": \"23799-999\",\n  \"fee\": 24.90,\n  \"deliveryDays\": 3\n}",
@@ -1375,7 +1375,7 @@
                 "delivery-zones"
               ]
             },
-            "description": "23000-000 a 24999-999 invade a faixa da zona criada acima.\n\nCorpo: `json/delivery-zones/post-sobreposta.json`.",
+            "description": "23000-000 a 24999-999 invade a faixa da zona criada acima.\n\nCorpo: `docs/json/delivery-zones/post-sobreposta.json`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Niterói e São Gonçalo\",\n  \"cepStart\": \"23000-000\",\n  \"cepEnd\": \"24999-999\",\n  \"fee\": 29.90,\n  \"deliveryDays\": 4\n}",
@@ -1513,7 +1513,7 @@
                 "{{zoneId}}"
               ]
             },
-            "description": "Corpo: `json/delivery-zones/put.json`.",
+            "description": "Corpo: `docs/json/delivery-zones/put.json`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Rio de Janeiro capital\",\n  \"cepStart\": \"20000-000\",\n  \"cepEnd\": \"23799-999\",\n  \"fee\": 19.90,\n  \"deliveryDays\": 2\n}",
@@ -1649,7 +1649,7 @@
                 "orders"
               ]
             },
-            "description": "2 × R$ 13,50 + frete R$ 7,90 (zona Centro expandido SP) = R$ 34,90. A API aceita (202) e o pagamento roda ~3 s depois. Guarda {{orderId}}.\n\nCorpo: `json/orders/post.json`.",
+            "description": "2 × R$ 13,50 + frete R$ 7,90 (zona Centro expandido SP) = R$ 34,90. A API aceita (202) e o pagamento roda ~3 s depois. Guarda {{orderId}}.\n\nCorpo: `docs/json/orders/post.json`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"addressId\": {{addressId}},\n  \"items\": [\n    { \"productId\": {{productId}}, \"quantity\": 2 }\n  ]\n}",
@@ -1698,7 +1698,7 @@
                 "orders"
               ]
             },
-            "description": "Corpo: `json/orders/post.json`.",
+            "description": "Corpo: `docs/json/orders/post.json`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"addressId\": {{addressId}},\n  \"items\": [\n    { \"productId\": {{productId}}, \"quantity\": 2 }\n  ]\n}",
@@ -1882,7 +1882,7 @@
                 "orders"
               ]
             },
-            "description": "40 × R$ 13,50 = R$ 540,00 (frete grátis a partir de R$ 150). A API aceita e o pagamento recusa. Guarda {{refusedOrderId}}.\n\nCorpo: `json/orders/post-acima-do-limite.json`.",
+            "description": "40 × R$ 13,50 = R$ 540,00 (frete grátis a partir de R$ 150). A API aceita e o pagamento recusa. Guarda {{refusedOrderId}}.\n\nCorpo: `docs/json/orders/post-acima-do-limite.json`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"addressId\": {{addressId}},\n  \"items\": [\n    { \"productId\": {{productId}}, \"quantity\": 40 }\n  ]\n}",
@@ -2029,7 +2029,7 @@
                 "orders"
               ]
             },
-            "description": "Guarda {{canceledOrderId}}.\n\nCorpo: `json/orders/post.json`.",
+            "description": "Guarda {{canceledOrderId}}.\n\nCorpo: `docs/json/orders/post.json`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"addressId\": {{addressId}},\n  \"items\": [\n    { \"productId\": {{productId}}, \"quantity\": 2 }\n  ]\n}",
@@ -2435,7 +2435,7 @@
                 "me"
               ]
             },
-            "description": "Corpo: `json/users/put-me-senha-errada.json`.",
+            "description": "Corpo: `docs/json/users/put-me-senha-errada.json`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"fullName\": \"Cliente Postman Editado\",\n  \"email\": \"{{editedEmail}}\",\n  \"currentPassword\": \"senha-errada\",\n  \"newPassword\": \"\",\n  \"confirmPassword\": \"\"\n}",
@@ -2493,7 +2493,7 @@
                 "me"
               ]
             },
-            "description": "Feito com o cliente de teste para não trocar a senha da conta do seed. O JWT usa o e-mail como subject, então a resposta traz um token novo, guardado em {{testToken}}.\n\nCorpo: `json/users/put-me.json`.",
+            "description": "Feito com o cliente de teste para não trocar a senha da conta do seed. O JWT usa o e-mail como subject, então a resposta traz um token novo, guardado em {{testToken}}.\n\nCorpo: `docs/json/users/put-me.json`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"fullName\": \"Cliente Postman Editado\",\n  \"email\": \"{{editedEmail}}\",\n  \"currentPassword\": \"teste123\",\n  \"newPassword\": \"teste456\",\n  \"confirmPassword\": \"teste456\"\n}",
@@ -2549,7 +2549,7 @@
                 "{{userId}}"
               ]
             },
-            "description": "O admin altera só nome e e-mail; senha não muda.\n\nCorpo: `json/users/put-admin.json`.",
+            "description": "O admin altera só nome e e-mail; senha não muda.\n\nCorpo: `docs/json/users/put-admin.json`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"fullName\": \"Cliente Postman (editado pelo admin)\",\n  \"email\": \"{{signupEmail}}\"\n}",
