@@ -1,6 +1,7 @@
 package br.com.fiap.marketbuddies.api.controllers.handlers;
 
 import br.com.fiap.marketbuddies.api.exceptions.BusinessException;
+import br.com.fiap.marketbuddies.api.exceptions.CepLookupException;
 import br.com.fiap.marketbuddies.api.exceptions.FieldValidationException;
 import br.com.fiap.marketbuddies.api.exceptions.NotFoundException;
 import br.com.fiap.marketbuddies.api.exceptions.OutOfStockException;
@@ -72,6 +73,11 @@ public class ApiExceptionHandler {
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<Map<String, Object>> handleBusiness(BusinessException ex, HttpServletRequest request) {
         return build(HttpStatus.UNPROCESSABLE_CONTENT, ex.getMessage(), request, null);
+    }
+
+    @ExceptionHandler(CepLookupException.class)
+    public ResponseEntity<Map<String, Object>> handleCepLookup(CepLookupException ex, HttpServletRequest request) {
+        return build(HttpStatus.BAD_GATEWAY, ex.getMessage(), request, null);
     }
 
     @ExceptionHandler(AuthenticationException.class)

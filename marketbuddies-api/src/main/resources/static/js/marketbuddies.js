@@ -168,7 +168,7 @@ document.addEventListener('DOMContentLoaded', () => {
       productModal?.close();
       deleteModal.showModal();
     };
-    document.querySelectorAll('[data-product-delete], [data-modal-delete]').forEach((button) => {
+    document.querySelectorAll('[data-product-delete], [data-modal-delete], [data-delete]').forEach((button) => {
       button.addEventListener('click', () => confirmDelete(button.dataset.id, button.dataset.name));
     });
   }
@@ -254,5 +254,53 @@ document.addEventListener('DOMContentLoaded', () => {
         trigger.focus();
       }
     });
+  });
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  const form = document.querySelector('[data-address-form]');
+  const cepInput = form?.querySelector('[data-cep]');
+  if (!form || !cepInput) return;
+  const message = form.querySelector('[data-cep-message]');
+  const uf = form.querySelector('[data-cep-fill="uf"]');
+  const show = (text) => {
+    if (message) message.textContent = text;
+  };
+  uf?.addEventListener('input', () => {
+    uf.value = uf.value.toUpperCase();
+  });
+
+  let lastLookup = cepInput.value.replace(/\D/g, '') || null;
+  const lookup = async () => {
+    const cep = cepInput.value.replace(/\D/g, '');
+    if (cep.length !== 8 || cep === lastLookup) return;
+    lastLookup = cep;
+    cepInput.value = cep.slice(0, 5) + '-' + cep.slice(5);
+    show('Buscando o CEP…');
+    try {
+      const response = await fetch(form.dataset.cepUrl + '/' + cep, {
+        headers: { Accept: 'application/json' }, credentials: 'same-origin'
+      });
+      const type = response.headers.get('Content-Type') || '';
+      const body = type.includes('application/json') ? await response.json() : null;
+      if (!response.ok || !body) {
+        lastLookup = null;
+        show(body?.errors?.cep || body?.message || 'Não foi possível consultar o CEP agora; preencha o endereço à mão.');
+        return;
+      }
+      ['street', 'district', 'city', 'uf'].forEach((name) => {
+        const input = form.querySelector('[data-cep-fill="' + name + '"]');
+        if (input && body[name]) input.value = body[name];
+      });
+      show('Endereço preenchido pelo CEP; confira e informe o número.');
+      form.querySelector('input[name="number"]')?.focus();
+    } catch (e) {
+      lastLookup = null;
+      show('Não foi possível consultar o CEP agora; preencha o endereço à mão.');
+    }
+  };
+  cepInput.addEventListener('blur', lookup);
+  cepInput.addEventListener('input', () => {
+    if (cepInput.value.replace(/\D/g, '').length !== 8) lastLookup = null;
   });
 });
