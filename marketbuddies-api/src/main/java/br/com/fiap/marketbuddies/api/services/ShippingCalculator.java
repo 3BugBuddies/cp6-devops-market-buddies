@@ -15,7 +15,7 @@ import java.math.RoundingMode;
 @RequiredArgsConstructor
 public class ShippingCalculator {
 
-    public static final BigDecimal FREE_SHIPPING_FROM = new BigDecimal("150.00");
+    public static final BigDecimal FREE_SHIPPING_FROM = new BigDecimal("100.00");
 
     private final DeliveryZoneRepository deliveryZoneRepository;
 

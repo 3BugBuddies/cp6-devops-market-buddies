@@ -21,25 +21,25 @@ class ShippingCalculatorTest {
     private final ShippingCalculator calculator = new ShippingCalculator(zones);
 
     @Test
-    void freteGratisComecaEm150Reais() {
-        assertThat(ShippingCalculator.FREE_SHIPPING_FROM).isEqualByComparingTo("150.00");
+    void freteGratisComecaEm100Reais() {
+        assertThat(ShippingCalculator.FREE_SHIPPING_FROM).isEqualByComparingTo("100.00");
     }
 
     @Test
     void abaixoDoLimiteCobraATaxaDaZona() {
-        assertThat(ShippingCalculator.fee(TAXA_CENTRO, new BigDecimal("149.99"))).isEqualByComparingTo("7.90");
+        assertThat(ShippingCalculator.fee(TAXA_CENTRO, new BigDecimal("99.99"))).isEqualByComparingTo("7.90");
     }
 
     @Test
     void exatamenteNoLimiteOFreteEGratis() {
-        assertThat(ShippingCalculator.fee(TAXA_CENTRO, new BigDecimal("150.00"))).isEqualByComparingTo("0.00");
+        assertThat(ShippingCalculator.fee(TAXA_CENTRO, new BigDecimal("100.00"))).isEqualByComparingTo("0.00");
     }
 
     @Test
     void quoteDevolveZonaTaxaEPrazo() {
         when(zones.findCovering("01310100")).thenReturn(Optional.of(zone("Centro expandido SP", "7.90", 1)));
 
-        ShippingCalculator.Quote quote = calculator.quote("01310100", new BigDecimal("120.00"));
+        ShippingCalculator.Quote quote = calculator.quote("01310100", new BigDecimal("80.00"));
 
         assertThat(quote.zoneName()).isEqualTo("Centro expandido SP");
         assertThat(quote.fee()).isEqualByComparingTo("7.90");
