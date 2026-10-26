@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Minha conta')}"></head>
+<body class="mb-root" style="min-height: 100vh; display: flex; flex-direction: column">
+<header th:replace="~{fragments/layout :: navbar('conta')}"></header>
+<main class="mb-page" style="flex: 1">
+    <div class="mb-container mb-stack" style="max-width: 760px">
+        <div class="mb-page-header" style="margin: 0">
+            <div>
+                <h1>Minha conta</h1>
+                <span class="mb-page-header__sub">Para salvar qualquer mudança, confirme com a senha atual</span>
+            </div>
+        </div>
+
+        <div th:replace="~{fragments/layout :: alerts}"></div>
+
+        <form class="mb-card" th:action="@{/account}" th:object="${accountForm}" method="post" novalidate
+              style="display: flex; flex-direction: column; gap: 16px">
+            <div class="mb-form-grid">
+                <div class="mb-field mb-form-grid__full">
+                    <label class="mb-label" for="ac-nome">Nome completo</label>
+                    <input class="mb-input" id="ac-nome" th:field="*{fullName}" th:errorclass="mb-input--error"
+                           maxlength="120" autocomplete="name">
+                    <p class="mb-field__error" th:if="${#fields.hasErrors('fullName')}" th:errors="*{fullName}">Informe seu nome completo</p>
+                </div>
+                <div class="mb-field mb-form-grid__full">
+                    <label class="mb-label" for="ac-email">E-mail</label>
+                    <input class="mb-input" id="ac-email" type="email" th:field="*{email}" th:errorclass="mb-input--error"
+                           maxlength="160" autocomplete="email">
+                    <p class="mb-field__error" th:if="${#fields.hasErrors('email')}" th:errors="*{email}">Informe um e-mail válido</p>
+                    <p class="mb-field__hint" th:unless="${#fields.hasErrors('email')}">É o e-mail que você usa para entrar</p>
+                </div>
+                <div class="mb-field">
+                    <label class="mb-label" for="ac-nova">Senha nova <span class="mb-muted">(opcional)</span></label>
+                    <input class="mb-input" id="ac-nova" type="password" name="newPassword" autocomplete="new-password"
+                           th:classappend="${#fields.hasErrors('newPassword')} ? 'mb-input--error'">
+                    <p class="mb-field__error" th:if="${#fields.hasErrors('newPassword')}" th:errors="*{newPassword}">A senha precisa ter de 6 a 72 caracteres</p>
+                    <p class="mb-field__hint" th:unless="${#fields.hasErrors('newPassword')}">Em branco mantém a senha atual</p>
+                </div>
+                <div class="mb-field">
+                    <label class="mb-label" for="ac-conf">Confirmar senha nova</label>
+                    <input class="mb-input" id="ac-conf" type="password" name="confirmPassword" autocomplete="new-password"
+                           th:classappend="${#fields.hasErrors('confirmPassword')} ? 'mb-input--error'">
+                    <p class="mb-field__error" th:if="${#fields.hasErrors('confirmPassword')}" th:errors="*{confirmPassword}">As senhas não conferem</p>
+                </div>
+                <div class="mb-field mb-form-grid__full">
+                    <label class="mb-label" for="ac-atual">Senha atual</label>
+                    <div class="mb-password">
+                        <input class="mb-input" id="ac-atual" type="password" name="currentPassword" autocomplete="current-password"
+                               th:classappend="${#fields.hasErrors('currentPassword')} ? 'mb-input--error'">
+                        <button class="mb-btn mb-btn--ghost" type="button" aria-label="Mostrar senha" title="Mostrar senha"><svg class="mb-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="2"></circle><path d="M22 12c-2.7 4.7-6 7-10 7s-7.3-2.3-10-7c2.7-4.7 6-7 10-7s7.3 2.3 10 7"></path></svg></button>
+                    </div>
+                    <p class="mb-field__error" th:if="${#fields.hasErrors('currentPassword')}" th:errors="*{currentPassword}">Senha atual incorreta.</p>
+                </div>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 8px">
+                <a class="mb-btn mb-btn--ghost" th:href="@{/products}">Cancelar</a>
+                <button class="mb-btn mb-btn--primary" type="submit">Salvar alterações</button>
+            </div>
+        </form>
+    </div>
+</main>
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

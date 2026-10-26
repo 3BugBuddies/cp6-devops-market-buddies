@@ -163,6 +163,7 @@
                         <td th:switch="${o.status.name()}">
                             <span th:case="'APPROVED'" class="mb-badge mb-badge--success">Pago</span>
                             <span th:case="'REFUSED'" class="mb-badge mb-badge--danger">Recusado</span>
+                            <span th:case="'CANCELED'" class="mb-badge mb-badge--neutral">Cancelado</span>
                             <span th:case="*" class="mb-badge mb-badge--warning">Aguardando banco</span>
                         </td>
                         <td th:switch="${o.emailStatus != null ? o.emailStatus.name() : ''}">
