@@ -46,6 +46,10 @@
             <div style="display: flex; gap: 12px; flex-wrap: wrap">
                 <a class="mb-btn mb-btn--primary" th:href="${admin} ? @{/admin/orders/{id}(id=${order.id})} : @{/orders/{id}(id=${order.id})}">Atualizar status</a>
                 <a th:unless="${admin}" class="mb-btn mb-btn--ghost" th:href="@{/products}">Voltar à loja</a>
+                <form th:unless="${admin}" th:action="@{/orders/{id}/cancel(id=${order.id})}" method="post" style="display: contents"
+                      onsubmit="return confirm('Cancelar este pedido? Os itens voltam ao estoque.')">
+                    <button class="mb-btn mb-btn--danger" type="submit">Cancelar pedido</button>
+                </form>
             </div>
         </section>
 
@@ -94,6 +98,11 @@
             </div>
             <div style="display: flex; gap: 12px; flex-wrap: wrap">
                 <a th:unless="${admin}" class="mb-btn mb-btn--primary" th:href="@{/products}">Continuar comprando</a>
+                <form th:if="${!admin and order.delivery != null and order.delivery.status != null and order.delivery.status.name() == 'EM_SEPARACAO'}"
+                      th:action="@{/orders/{id}/cancel(id=${order.id})}" method="post" style="display: contents"
+                      onsubmit="return confirm('Cancelar este pedido? Os itens voltam ao estoque.')">
+                    <button class="mb-btn mb-btn--danger" type="submit">Cancelar pedido</button>
+                </form>
                 <form th:if="${admin and (order.statusEmail == null or order.statusEmail.name() != 'SENT')}"
                       th:action="@{/admin/orders/{id}/resend-email(id=${order.id})}" method="post" style="display: contents">
                     <input type="hidden" name="back" value="orders">
@@ -135,6 +144,46 @@
                     <button class="mb-btn mb-btn--buy" type="submit">Tentar de novo</button>
                 </form>
                 <a class="mb-btn mb-btn--secondary" th:href="@{/products}">Voltar à loja</a>
+            </div>
+            <div th:if="${admin}" style="display: flex; gap: 12px; flex-wrap: wrap">
+                <form th:action="@{/admin/orders/{id}/delete(id=${order.id})}" method="post" style="display: contents"
+                      onsubmit="return confirm('Excluir este pedido? Os itens e os e-mails dele também saem.')">
+                    <button class="mb-btn mb-btn--danger" type="submit">Excluir pedido</button>
+                </form>
+            </div>
+        </section>
+
+        <section th:if="${order.status.name() == 'CANCELED'}" class="mb-card"
+                 style="max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px">
+            <div style="display: flex; gap: 16px; align-items: center">
+                <span style="width: 56px; height: 56px; flex: none; border-radius: 50%; background: var(--mb-line); color: var(--mb-ink-600); display: grid; place-items: center"><svg class="mb-icon" viewBox="0 0 24 24" style="width: 30px; height: 30px" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17"></path></svg></span>
+                <div style="display: flex; flex-direction: column; gap: 4px">
+                    <h1 style="margin: 0">Pedido cancelado</h1>
+                    <span style="color: var(--mb-ink-600)"
+                          th:text="${'Pedido #' + order.id + ' · ' + total + ' · cancelado pelo cliente'}">Pedido #1044 · R$ 33,83 · cancelado pelo cliente</span>
+                </div>
+            </div>
+            <div><span class="mb-badge mb-badge--neutral">Cancelado</span></div>
+            <div class="mb-alert mb-alert--info" role="status">
+                <svg class="mb-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8h.01M11 12h1v4h1"></path></svg>
+                <span>O pedido foi cancelado antes de sair para entrega e os itens voltaram ao estoque.</span>
+            </div>
+            <div style="border-top: 1px solid var(--mb-line); padding-top: 12px; display: flex; flex-direction: column; gap: 8px">
+                <div th:each="it : ${order.items}" class="mb-row">
+                    <span th:text="${it.quantity + ' × ' + it.productName}">1 × Café torrado e moído 500 g</span>
+                    <span style="font-variant-numeric: tabular-nums"
+                          th:text="${'R$ ' + #numbers.formatDecimal(it.unitPrice * it.quantity, 1, 'POINT', 2, 'COMMA')}">R$ 18,71</span>
+                </div>
+                <th:block th:replace="~{fragments/delivery :: totals(${order}, 'Total')}"></th:block>
+            </div>
+            <div th:unless="${admin}" style="display: flex; gap: 12px; flex-wrap: wrap">
+                <a class="mb-btn mb-btn--secondary" th:href="@{/products}">Voltar à loja</a>
+            </div>
+            <div th:if="${admin}" style="display: flex; gap: 12px; flex-wrap: wrap">
+                <form th:action="@{/admin/orders/{id}/delete(id=${order.id})}" method="post" style="display: contents"
+                      onsubmit="return confirm('Excluir este pedido? Os itens e os e-mails dele também saem.')">
+                    <button class="mb-btn mb-btn--danger" type="submit">Excluir pedido</button>
+                </form>
             </div>
         </section>
     </div>

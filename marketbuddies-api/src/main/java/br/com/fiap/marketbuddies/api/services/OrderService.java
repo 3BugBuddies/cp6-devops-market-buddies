@@ -149,17 +149,41 @@ public class OrderService {
             logIgnored(orderId, "recusa (" + reason + ")");
             return false;
         }
-        OrderEntity order = orderRepository.findDetailedById(orderId)
-                .orElseThrow(() -> new NotFoundException("Pedido " + orderId + " não encontrado"));
-        for (OrderItemEntity item : order.getItems()) {
-            if (item.getProduct() == null) {
-                log.info("Pedido {} · {} foi excluído do catálogo; estoque não devolvido", orderId, item.getProductName());
-                continue;
-            }
-            productRepository.release(item.getProduct().getId(), item.getQuantity());
-        }
+        restoreStock(orderId);
         log.info("Pedido {} RECUSADO · {} · estoque devolvido", orderId, reason);
         return true;
+    }
+
+    /** Só o dono cancela, e só enquanto aguarda pagamento ou está em separação; o estoque volta. */
+    @Transactional
+    public OrderDto cancel(Long orderId, Long customerId) {
+        orderRepository.findDetailedById(orderId)
+                .filter(o -> o.getCustomer().getId().equals(customerId))
+                .orElseThrow(() -> new NotFoundException("Pedido " + orderId + " não encontrado"));
+        if (orderRepository.cancel(orderId) == 0) {
+            OrderStatus current = orderRepository.findById(orderId).map(OrderEntity::getStatus).orElse(null);
+            throw new BusinessException(switch (current) {
+                case REFUSED -> "Pedido recusado não pode ser cancelado.";
+                case CANCELED -> "O pedido já foi cancelado.";
+                case null, default -> "O pedido já saiu para entrega e não pode ser cancelado.";
+            });
+        }
+        restoreStock(orderId);
+        log.info("Pedido {} CANCELADO pelo cliente · estoque devolvido", orderId);
+        return getOrder(orderId, customerId, false);
+    }
+
+    /** Admin exclui só pedido recusado ou cancelado; os e-mails do pedido saem antes, os itens vão em cascata. */
+    @Transactional
+    public void deleteOrder(Long orderId) {
+        OrderEntity order = orderRepository.findDetailedById(orderId)
+                .orElseThrow(() -> new NotFoundException("Pedido " + orderId + " não encontrado"));
+        if (order.getStatus() != OrderStatus.REFUSED && order.getStatus() != OrderStatus.CANCELED) {
+            throw new BusinessException("Só pedido recusado ou cancelado pode ser excluído.");
+        }
+        int emails = emailRepository.deleteByOrderId(orderId);
+        orderRepository.delete(order);
+        log.info("Pedido {} ({}) excluído com {} e-mail(s)", orderId, order.getStatus(), emails);
     }
 
     /**
@@ -222,6 +246,19 @@ public class OrderService {
                     .forEach(row -> emailStatus.put(row.getOrderId(), row.getStatusEmail()));
         }
         return orders.stream().map(o -> OrderDto.from(o, emailStatus.get(o.getId()))).toList();
+    }
+
+    /** Relê o pedido: os updates condicionais limpam o contexto de persistência. */
+    private void restoreStock(Long orderId) {
+        OrderEntity order = orderRepository.findDetailedById(orderId)
+                .orElseThrow(() -> new NotFoundException("Pedido " + orderId + " não encontrado"));
+        for (OrderItemEntity item : order.getItems()) {
+            if (item.getProduct() == null) {
+                log.info("Pedido {} · {} foi excluído do catálogo; estoque não devolvido", orderId, item.getProductName());
+                continue;
+            }
+            productRepository.release(item.getProduct().getId(), item.getQuantity());
+        }
     }
 
     private void logIgnored(Long orderId, String what) {

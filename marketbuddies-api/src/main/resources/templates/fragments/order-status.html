@@ -8,6 +8,7 @@
         <span class="mb-badge mb-badge--danger">Recusado</span>
         <span class="mb-order-status__reason" th:if="${o.refusalReason != null}" th:text="${o.refusalReason}">Valor acima do limite</span>
     </th:block>
+    <span th:case="'CANCELED'" class="mb-badge mb-badge--neutral">Cancelado</span>
     <span th:case="*" class="mb-badge mb-badge--warning">Aguardando</span>
 </span>
 
