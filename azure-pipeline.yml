@@ -1,6 +1,6 @@
 # Pipeline da MarketBuddies API (CP6) - CI (build + testes) e CD (deploy no Azure Web App)
 #
-# A infraestrutura (Web App, plano, App Insights, Azure SQL) é criada uma vez por infra/infra-app.sh.
+# A infraestrutura (Web App, plano, App Insights, Azure SQL) é criada uma vez por scripts/infra-app.sh.
 #
 # As variáveis abaixo são cadastradas na UI da pipeline (Edit > Variables), NUNCA neste arquivo:
 #   DB_URL          - JDBC do Azure SQL (impressa no fim do infra-app.sh)
