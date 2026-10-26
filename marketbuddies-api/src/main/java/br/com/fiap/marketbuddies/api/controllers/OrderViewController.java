@@ -48,6 +48,7 @@ public class OrderViewController {
         Map<String, Object> body = new HashMap<>();
         body.put("status", order.status());
         body.put("statusEmail", order.statusEmail());
+        body.put("deliveryStatus", order.delivery() == null ? null : order.delivery().status());
         return body;
     }
 

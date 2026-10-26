@@ -37,6 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function pollOrderStatus(section) {
   const url = section.dataset.orderStatusUrl;
   const waitEmail = section.dataset.orderWait === 'email';
+  const delivery = section.dataset.orderDelivery;
   let attempts = 0;
   const timer = setInterval(async () => {
     if (++attempts > 45) {
@@ -51,7 +52,9 @@ function pollOrderStatus(section) {
         return;
       }
       const body = await response.json();
-      const done = waitEmail ? body.statusEmail : body.status && body.status !== 'AWAITING_PAYMENT';
+      const done = delivery !== undefined
+        ? (waitEmail && body.statusEmail) || (body.deliveryStatus ?? '') !== delivery
+        : body.status && body.status !== 'AWAITING_PAYMENT';
       if (done) {
         clearInterval(timer);
         window.location.reload();

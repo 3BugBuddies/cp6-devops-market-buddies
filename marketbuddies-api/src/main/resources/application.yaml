@@ -46,6 +46,10 @@ marketbuddies:
     # Regra do Tranquilo Bank, que agora roda dentro da API
     approval-limit: 500.00
     delay: 3s
+  delivery:
+    # Cada etapa da entrega dura pelo menos step; o job confere a cada check-ms
+    step: 20s
+    check-ms: 5000
 
 app:
   jwt:

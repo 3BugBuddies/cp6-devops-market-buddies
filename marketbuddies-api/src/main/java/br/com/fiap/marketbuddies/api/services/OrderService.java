@@ -1,5 +1,6 @@
 package br.com.fiap.marketbuddies.api.services;
 
+import br.com.fiap.marketbuddies.api.configs.DeliveryProperties;
 import br.com.fiap.marketbuddies.api.dtos.OrderDto;
 import br.com.fiap.marketbuddies.api.dtos.OrderItemRequestDto;
 import br.com.fiap.marketbuddies.api.dtos.PaymentRequestDto;
@@ -9,6 +10,7 @@ import br.com.fiap.marketbuddies.api.entities.OrderEntity;
 import br.com.fiap.marketbuddies.api.entities.OrderItemEntity;
 import br.com.fiap.marketbuddies.api.entities.ProductEntity;
 import br.com.fiap.marketbuddies.api.entities.UserEntity;
+import br.com.fiap.marketbuddies.api.enums.DeliveryStatus;
 import br.com.fiap.marketbuddies.api.enums.OrderOrigin;
 import br.com.fiap.marketbuddies.api.enums.OrderStatus;
 import br.com.fiap.marketbuddies.api.enums.Role;
@@ -27,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -42,6 +45,8 @@ public class OrderService {
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
     private final EmailRepository emailRepository;
+    private final Clock clock;
+    private final DeliveryProperties deliveryProperties;
 
     public record CreatedOrder(OrderDto order, PaymentRequestDto paymentRequest) {
     }
@@ -106,19 +111,21 @@ public class OrderService {
     /** Devolve {@code true} só na primeira resposta; repetida ou atrasada devolve {@code false}. */
     @Transactional
     public boolean markApproved(Long orderId, String authorizationCode) {
-        int changed = orderRepository.respond(orderId, OrderStatus.APPROVED, authorizationCode, null, LocalDateTime.now());
+        LocalDateTime now = LocalDateTime.now(clock);
+        int changed = orderRepository.respond(orderId, OrderStatus.APPROVED, authorizationCode, null, now);
         if (changed == 0) {
             logIgnored(orderId, "aprovação");
             return false;
         }
-        log.info("Pedido {} APROVADO {}", orderId, authorizationCode);
+        orderRepository.startDelivery(orderId, now);
+        log.info("Pedido {} APROVADO {} · entrega em separação", orderId, authorizationCode);
         return true;
     }
 
     /** Devolve o estoque só na primeira resposta; repetida ou atrasada devolve {@code false}. */
     @Transactional
     public boolean markRefused(Long orderId, String reason) {
-        int changed = orderRepository.respond(orderId, OrderStatus.REFUSED, null, reason, LocalDateTime.now());
+        int changed = orderRepository.respond(orderId, OrderStatus.REFUSED, null, reason, LocalDateTime.now(clock));
         if (changed == 0) {
             logIgnored(orderId, "recusa (" + reason + ")");
             return false;
@@ -134,6 +141,24 @@ public class OrderService {
         }
         log.info("Pedido {} RECUSADO · {} · estoque devolvido", orderId, reason);
         return true;
+    }
+
+    /**
+     * Avança uma etapa as entregas paradas há pelo menos {@code step}. A última etapa roda primeiro para que
+     * um pedido nunca avance duas etapas no mesmo tick.
+     */
+    @Transactional
+    public int advanceDeliveries() {
+        LocalDateTime now = LocalDateTime.now(clock);
+        LocalDateTime limit = now.minus(deliveryProperties.step());
+        int delivered = orderRepository.advanceDelivery(
+                DeliveryStatus.SAIU_PARA_ENTREGA, DeliveryStatus.ENTREGUE, limit, now);
+        int dispatched = orderRepository.advanceDelivery(
+                DeliveryStatus.EM_SEPARACAO, DeliveryStatus.SAIU_PARA_ENTREGA, limit, now);
+        if (delivered + dispatched > 0) {
+            log.info("Job de entrega: {} saíram para entrega, {} entregues", dispatched, delivered);
+        }
+        return delivered + dispatched;
     }
 
     @Transactional(readOnly = true)

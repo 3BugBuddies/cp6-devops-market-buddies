@@ -1,6 +1,7 @@
 package br.com.fiap.marketbuddies.api.repositories;
 
 import br.com.fiap.marketbuddies.api.entities.OrderEntity;
+import br.com.fiap.marketbuddies.api.enums.DeliveryStatus;
 import br.com.fiap.marketbuddies.api.enums.OrderStatus;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -32,6 +33,33 @@ public interface OrderRepository extends JpaRepository<OrderEntity, Long> {
                 @Param("code") String code,
                 @Param("reason") String reason,
                 @Param("now") LocalDateTime now);
+
+    /** Abre a entrega do pedido aprovado; devolve 0 se ela já começou. */
+    @Modifying(clearAutomatically = true)
+    @Query("""
+            update OrderEntity o
+               set o.deliveryStatus = br.com.fiap.marketbuddies.api.enums.DeliveryStatus.EM_SEPARACAO,
+                   o.deliveryUpdatedAt = :now
+             where o.id = :id
+               and o.status = br.com.fiap.marketbuddies.api.enums.OrderStatus.APPROVED
+               and o.deliveryStatus is null
+            """)
+    int startDelivery(@Param("id") Long id, @Param("now") LocalDateTime now);
+
+    /** Avança uma etapa os pedidos aprovados que estão em {@code from} desde {@code limit} ou antes. */
+    @Modifying(clearAutomatically = true)
+    @Query("""
+            update OrderEntity o
+               set o.deliveryStatus = :to,
+                   o.deliveryUpdatedAt = :now
+             where o.status = br.com.fiap.marketbuddies.api.enums.OrderStatus.APPROVED
+               and o.deliveryStatus = :from
+               and o.deliveryUpdatedAt <= :limit
+            """)
+    int advanceDelivery(@Param("from") DeliveryStatus from,
+                        @Param("to") DeliveryStatus to,
+                        @Param("limit") LocalDateTime limit,
+                        @Param("now") LocalDateTime now);
 
     List<OrderEntity> findByStatusAndCreatedAtBefore(OrderStatus status, LocalDateTime limit);
 
