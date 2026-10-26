@@ -1,51 +1,22 @@
-# MarketBuddies — CheckPoint 5 | Java Advanced
+# MarketBuddies — CheckPoint 6 | DevOps Tools e Cloud Computing
 
-Mercado express com loja web autenticada (Spring Security + JWT + Thymeleaf + PostgreSQL) e pagamento assíncrono pelo **Tranquilo Bank** via RabbitMQ, com e-mail de confirmação e dashboard da gerência. Entrega única das **Partes I e II** do CheckPoint 5 da disciplina de Java Advanced (TDS) — FIAP.
-
-- **Parte I:** loja web com landing, login e cadastro próprios, perfis CUSTOMER e ADMIN, CRUD de produtos pelo ADMIN e página 403 estilizada, tudo no PostgreSQL.
-- **Parte II:** carrinho, checkout, pedido de pagamento publicado no RabbitMQ, integração com o Tranquilo Bank, resposta assíncrona, e-mail de confirmação registrado no banco e dashboard da gerência.
-
----
-
-## Índice
-
-- [Deploy](#deploy)
-- [Integrantes do Grupo](#integrantes-do-grupo)
-- [Arquitetura](#arquitetura)
-- [Configuração do Projeto — Spring Initializr](#configuração-do-projeto--spring-initializr)
-- [Estrutura do Projeto](#estrutura-do-projeto)
-- [Como Executar](#como-executar)
-- [Segurança — Spring Security + JWT](#segurança--spring-security--jwt)
-- [Tratamento de Erros](#tratamento-de-erros)
-- [Mensageria — RabbitMQ](#mensageria--rabbitmq)
-- [E-mail de Confirmação](#e-mail-de-confirmação)
-- [Variáveis de Ambiente](#variáveis-de-ambiente)
-- [Credenciais de Teste](#credenciais-de-teste)
-- [Modelo de Dados](#modelo-de-dados)
-- [Telas da Aplicação](#telas-da-aplicação)
-- [Testes com Postman](#testes-com-postman)
-- [Painel do RabbitMQ e Testes Internos](#painel-do-rabbitmq-e-testes-internos)
-- [Dashboard da Gerência](#dashboard-da-gerência)
-- [Tecnologias Utilizadas](#tecnologias-utilizadas)
+Mercado express com loja web e API REST em Spring Boot, publicado na Azure por uma pipeline CI/CD do Azure DevOps.
+A API roda num Azure Web App Linux (Java 21) e grava no Azure SQL Database. A infraestrutura é criada por um script
+Azure CLI; o build, os testes e o deploy são feitos pelo `azure-pipeline.yml`.
 
 ---
 
-## Deploy
+## Links
 
 | Recurso | URL |
 |---------|-----|
-| Aplicação — MarketBuddies API (Railway) | https://marketbuddies-api-production.up.railway.app |
-| Login | https://marketbuddies-api-production.up.railway.app/login |
-| Tranquilo Bank (API de pagamentos) | https://tranquilo-bank-production.up.railway.app |
-| Painel do RabbitMQ | https://rabbitmq-production-e3dc.up.railway.app |
-| Vídeo | https://youtu.be/Nd90oGEn78A |
-
-> O deploy roda no plano de teste do Railway, que tem **crédito limitado**. Previsão de ficar no ar até **01/11/2026** (consumo medido: ~886 MB de RAM somados nos 5 serviços, ~US$ 0,32/dia). Depois disso, a aplicação pode ficar indisponível; o vídeo e os prints deste README mostram o fluxo completo.
-
+| Azure DevOps (Boards, Repos, Pipelines) | https://dev.azure.com/RM5639255/MarketBuddies |
+| Aplicação (Azure Web App) | https://marketbuddies-rm563925.azurewebsites.net |
+| Vídeo | a preencher |
 
 ---
 
-## Integrantes do Grupo
+## Integrantes
 
 | Nome | RM |
 |------|----|
@@ -55,623 +26,463 @@ Mercado express com loja web autenticada (Spring Security + JWT + Thymeleaf + Po
 | Mariana Inoue | 565834 |
 
 **Turma:** 2TDSR
-**IDE utilizada:** IntelliJ IDEA
 
 ---
 
-## Arquitetura
+## Descrição da solução
 
-![Arquitetura do MarketBuddies](assets/arquitetura.png)
+O MarketBuddies é a loja de um mercado express. O visitante navega pela vitrine e monta o carrinho. O cliente
+(perfil `CUSTOMER`) cadastra endereços de entrega, fecha o pedido e acompanha o pagamento e a entrega. A gerência
+(perfil `ADMIN`) cuida dos produtos, das zonas de entrega, dos pedidos e do dashboard.
 
----
+O fluxo de um pedido:
 
-## Configuração do Projeto — Spring Initializr
+1. O cliente escolhe um endereço no checkout. O CEP do endereço cai numa zona de entrega, que define frete e prazo.
+2. O pedido nasce `AWAITING_PAYMENT`, com o estoque reservado e o endereço copiado para o pedido.
+3. O pagamento é autorizado dentro da própria API, de forma assíncrona (cerca de 3 s depois): aprovado ou recusado.
+4. Aprovado, a API envia o e-mail de confirmação e a entrega começa: `EM_SEPARACAO` → `SAIU_PARA_ENTREGA` →
+   `ENTREGUE`, uma etapa a cada 20 s.
 
-Spring Boot 4.1.1, Java 21, Maven, configuração em YAML. Cada serviço foi gerado separadamente no Initializr (clique na imagem para ver em tamanho real).
+Ao cadastrar um endereço, a API consulta o **ViaCEP** e preenche rua, bairro, cidade e UF.
+
+A solução é um único deployable: telas Thymeleaf e rotas `/api/**` no mesmo Spring Boot.
 
 <table>
   <tr>
-    <th>MarketBuddies API</th>
-    <th>MarketBuddies Worker</th>
-    <th>Tranquilo Bank</th>
-  </tr>
-  <tr>
-    <td><a href="assets/spring-initializr-marketbuddies-api.png"><img src="assets/spring-initializr-marketbuddies-api.png" alt="Spring Initializr — MarketBuddies API" width="280"></a></td>
-    <td><a href="assets/spring-initializr-marketbuddies-worker.png"><img src="assets/spring-initializr-marketbuddies-worker.png" alt="Spring Initializr — MarketBuddies Worker" width="280"></a></td>
-    <td><a href="assets/spring-initializr-tranquilo-bank.png"><img src="assets/spring-initializr-tranquilo-bank.png" alt="Spring Initializr — Tranquilo Bank" width="280"></a></td>
+    <td align="center" valign="top"><a href="assets/tela-vitrine.png"><img src="assets/tela-vitrine.png" alt="Vitrine" width="280"></a><br><sub>Vitrine</sub></td>
+    <td align="center" valign="top"><a href="assets/tela-dashboard.png"><img src="assets/tela-dashboard.png" alt="Dashboard da gerência" width="280"></a><br><sub>Dashboard da gerência</sub></td>
   </tr>
 </table>
 
-| Dependência | API | Worker | Bank | Para quê |
-|-------------|:---:|:------:|:----:|----------|
-| Spring Web | ✓ | | ✓ | Controllers e API REST |
-| Spring Security | ✓ | | | Autenticação e autorização por perfil |
-| Thymeleaf | ✓ | | | Telas renderizadas no servidor |
-| Spring Data JPA | ✓ | | | Persistência com Hibernate |
-| PostgreSQL Driver | ✓ | | | Driver JDBC |
-| Validation | ✓ | | ✓ | Bean Validation em formulários e corpos JSON |
-| Spring for RabbitMQ | ✓ | ✓ | | Filas do pagamento |
-| Java Mail Sender | ✓ | | | E-mail de confirmação |
-| HTTP Client | | ✓ | | Chamada ao Tranquilo Bank |
-| Lombok | ✓ | ✓ | ✓ | Menos boilerplate |
-| Spring Boot DevTools | ✓ | ✓ | ✓ | Reinício automático em desenvolvimento |
+---
 
-Fora do Initializr, a API usa ainda `thymeleaf-extras-springsecurity6` (mostra ou esconde elementos por perfil) e `jjwt` (gera e valida o token JWT).
+## Benefícios para o negócio
+
+- **Frete calculado na hora.** O cliente vê zona, frete, prazo e total antes de pagar. A gerência muda as faixas de
+  CEP e as taxas pela tela, sem deploy.
+- **Menos erro de endereço.** O ViaCEP preenche o endereço a partir do CEP. O pedido guarda uma cópia do endereço,
+  então editar ou excluir o cadastro não muda o histórico.
+- **Acompanhamento do pedido.** O cliente vê o pagamento e cada etapa da entrega na página do pedido, e recebe o
+  e-mail de confirmação.
+- **Entrega contínua.** Todo merge na `main` compila, roda os testes e publica a nova versão. Se um teste falha, o
+  deploy não acontece.
+- **Infraestrutura reprodutível.** Um script cria todos os recursos na Azure; outro apaga tudo.
 
 ---
 
-## Estrutura do Projeto
+## Arquitetura macro
 
-Pacotes no plural, por camada, no padrão dos projetos do professor.
+![Arquitetura macro do MarketBuddies na Azure](assets/arquitetura-macro.png)
 
-```
-cp5-market-buddies/
-├── marketbuddies-api/        # loja web, API REST e mensageria (porta 8080)
-│   └── src/main/
-│       ├── java/.../api/
-│       │   ├── configs/      # segurança, RabbitMQ, propriedades e dados iniciais
-│       │   ├── security/     # filtro e utilitário do JWT
-│       │   ├── controllers/  # telas, /api/** e handlers de erro
-│       │   ├── facades/      # fluxo do pagamento (pedido → fila → resposta)
-│       │   ├── services/     # regras de negócio, carrinho, e-mail, dashboard e job de expiração
-│       │   ├── producers/    # publica o pedido de pagamento
-│       │   ├── consumers/    # lê as respostas do pagamento
-│       │   ├── dtos/         # records de entrada e saída
-│       │   ├── entities/     # tabelas
-│       │   ├── enums/        # status, perfis e categorias
-│       │   ├── exceptions/   # exceções de negócio
-│       │   └── repositories/ # acesso ao banco
-│       └── resources/
-│           ├── static/       # CSS, JS e imagens
-│           └── templates/    # telas Thymeleaf
-│               └── email/    # template HTML do e-mail de confirmação
-├── marketbuddies-worker/     # integração de pagamentos (sem porta)
-│   └── src/main/java/.../worker/
-│       ├── configs/          # filas, conversor JSON e cliente HTTP
-│       ├── consumers/        # lê o pedido de pagamento
-│       ├── clients/          # chama o Tranquilo Bank
-│       ├── producers/        # publica a resposta
-│       └── dtos/             # mensagens trocadas na fila
-├── tranquilo-bank/           # API do banco (porta 8090)
-│   └── src/main/java/.../tranquilobank/
-│       ├── controllers/      # POST /api/payments/authorize
-│       ├── services/         # regra de aprovação
-│       └── dtos/             # pedido e resposta da autorização
-├── postman/                  # coleção e exemplos de JSON
-├── assets/                   # imagens deste README
-└── docker-compose.yml        # PostgreSQL + RabbitMQ local
-```
+O usuário acessa o Web App por HTTPS (navegador ou Postman). O Web App fala com o Azure SQL por JDBC (porta 1433),
+com o ViaCEP por HTTPS e com o Gmail por SMTP (porta 587), e manda telemetria ao Application Insights. A pipeline do
+Azure DevOps publica o JAR no Web App por zip deploy. O repositório foi importado do GitHub.
+
+Fonte do desenho: [`docs/arquitetura/arquitetura-macro.html`](docs/arquitetura/arquitetura-macro.html).
 
 ---
 
-## Como Executar
+## Recursos Azure criados pelo script
 
-### Pré-requisitos
+Script: [`infra/infra-app.sh`](infra/infra-app.sh). Para apagar tudo: [`infra/destroy.sh`](infra/destroy.sh).
 
-- Java 21+
-- Docker (para PostgreSQL e RabbitMQ)
+| Recurso | Nome | SKU | Região |
+|---------|------|-----|--------|
+| Resource Group | `rg-cp6-marketbuddies` | — | brazilsouth |
+| Application Insights | `ai-cp6-marketbuddies` | web | brazilsouth |
+| SQL Server (lógico) | `sql-marketbuddies-rm563925` | — | brazilsouth |
+| SQL Database | `marketbuddies` | Basic | brazilsouth |
+| App Service Plan | `plan-cp6-marketbuddies` | B1 Linux | brazilsouth |
+| Web App | `marketbuddies-rm563925` | `JAVA:21-java21` | brazilsouth |
 
-### Rodando localmente
+O script também:
+
+- registra os providers `Microsoft.Web`, `Microsoft.Insights`, `Microsoft.OperationalInsights` e `Microsoft.Sql`;
+- cria as regras de firewall do SQL Server `AllowAzureServices` e `AllowMeuIP` (IP de quem roda o script);
+- liga o Always On e os logs do Web App;
+- grava as app settings que não são segredo (App Insights, `TZ`, `WEBSITES_CONTAINER_START_TIME_LIMIT`, `APP_BASE_URL`);
+- conecta o Web App ao Application Insights;
+- imprime no fim a `DB_URL` para cadastrar na pipeline.
+
+A senha do admin do SQL Server (`mbadmin`) é digitada na hora e não fica no arquivo.
+
+---
+
+## Pipeline CI/CD
+
+Arquivo: [`azure-pipeline.yml`](azure-pipeline.yml). Detalhes e ordem de execução: [`docs/pipeline.md`](docs/pipeline.md).
+
+- **Gatilho:** push na `main` (inclui o merge de PR).
+- **Agente:** `ubuntu-latest`.
+- **Estágio CI — Build e Testes:** Java 21 (`JavaToolInstaller@0`) → `Maven@4` com `clean package` em
+  `marketbuddies-api/pom.xml` → testes publicados (`**/surefire-reports/TEST-*.xml`, título "Testes de Código") →
+  cópia do JAR → artefato `app`.
+- **Estágio CD — Deploy no Azure Web App:** só roda se o CI passou. Job `deployment` no environment
+  `marketbuddies-prod` → baixa o artefato → `AzureAppServiceSettings@1` grava as variáveis no Web App →
+  `AzureWebApp@1` publica o JAR por zip deploy.
+- **Service connection:** `sc-marketbuddies` (Azure Resource Manager, escopo na assinatura).
+
+Os resultados dos testes aparecem na aba **Tests** da execução.
+
+### Variáveis da pipeline
+
+Cadastradas em Pipelines → Edit → Variables. Nenhum valor fica no repositório.
+
+| Variável | Secreta | Conteúdo |
+|----------|:-------:|----------|
+| `DB_URL` | não | JDBC do Azure SQL, impressa no fim do `infra-app.sh` |
+| `DB_USER` | não | usuário admin do SQL Server |
+| `DB_PASSWORD` | sim | senha do admin do SQL Server |
+| `JWT_SECRET` | sim | chave do token JWT (32 caracteres ou mais) |
+| `ADMIN_PASSWORD` | sim | senha do usuário ADMIN da loja |
+| `MAIL_USERNAME` | sim | conta Gmail que envia os e-mails |
+| `MAIL_PASSWORD` | sim | senha de app do Gmail |
+
+`DDL_AUTO=update` é fixo no YAML: o Hibernate cria e atualiza as tabelas na primeira subida.
+
+---
+
+## Modelo de dados
+
+As tabelas são criadas pelo Hibernate a partir das entidades JPA. O DDL completo fica em `script.sql`, na raiz
+(gerado do schema do Azure SQL na T6).
+
+| Tabela | Conteúdo | Relacionamentos |
+|--------|----------|-----------------|
+| `TB_USERS` | clientes e admin: nome, e-mail único, senha (hash BCrypt), perfil | 1:N com `TB_ADDRESSES` e `TB_ORDERS` |
+| `TB_PRODUCTS` | nome, categoria, descrição, custo, markup, preço, desconto, estoque | 1:N com `TB_ORDER_ITEMS` |
+| `TB_ADDRESSES` | endereços do cliente: rótulo, CEP, rua, número, complemento, bairro, cidade, UF | N:1 `TB_USERS` (`user_id`) · 1:N `TB_ORDERS` (`address_id`) |
+| `TB_DELIVERY_ZONES` | faixas de CEP: nome único, CEP inicial e final, taxa, prazo em dias | sem FK: o pedido acha a zona pelo CEP e copia taxa e prazo |
+| `TB_ORDERS` | status do pagamento, total, código de autorização, cópia do endereço (`delivery_*`), frete, prazo, status da entrega | N:1 `TB_USERS` (`user_id`) · N:1 `TB_ADDRESSES` (`address_id`, pode ser nulo) · 1:N `TB_ORDER_ITEMS` e `TB_EMAILS` |
+| `TB_ORDER_ITEMS` | produto, quantidade, preço e custo unitários no momento da compra | N:1 `TB_ORDERS` (`order_id`) · N:1 `TB_PRODUCTS` (`product_id`, pode ser nulo) |
+| `TB_EMAILS` | e-mails de confirmação: remetente, destinatário, assunto, corpo, status (`SENT`/`ERROR`) | N:1 `TB_ORDERS` (`order_id`) |
+
+- Excluir um endereço zera `address_id` nos pedidos; a cópia em `delivery_*` fica.
+- Excluir um produto zera `product_id` nos itens; nome e preço do item ficam.
+
+---
+
+## Rotas dos CRUDs
+
+Base URL: `https://marketbuddies-rm563925.azurewebsites.net` (local: `http://localhost:8080`).
+
+Autenticação: `POST /api/auth/login` devolve `accessToken`; as demais rotas usam `Authorization: Bearer <token>`.
+Erros voltam em JSON com `status`, `message`, `path` e `errors` por campo.
+
+### Autenticação
+
+| Método | Rota | Perfil | Descrição |
+|--------|------|--------|-----------|
+| `POST` | `/api/auth/signup` | público | Cadastra um cliente (201; 409 se o e-mail já existe) |
+| `POST` | `/api/auth/login` | público | Devolve o token JWT (200; 401 se inválido) |
+| `GET` | `/api/auth/me` | autenticado | Dados do usuário do token |
+
+### Produtos — `TB_PRODUCTS`
+
+| Método | Rota | Perfil | Descrição |
+|--------|------|--------|-----------|
+| `GET` | `/api/products?search=&category=` | público | Lista o catálogo, com filtros opcionais |
+| `GET` | `/api/products/{id}` | público | Busca por id (404 se não existe) |
+| `POST` | `/api/products` | ADMIN | Cria (201) |
+| `PUT` | `/api/products/{id}` | ADMIN | Atualiza (200) |
+| `DELETE` | `/api/products/{id}` | ADMIN | Exclui (204); os itens de pedido perdem a referência |
+
+| Campo | Obrigatório | Regra |
+|-------|:-----------:|-------|
+| `name` | sim | até 80 caracteres |
+| `category` | sim | valor do enum `Category` |
+| `description` | não | até 500 caracteres |
+| `cost` | sim | maior que 0, 2 casas |
+| `markupPercentage` | sim | 0 a 500 |
+| `discountPercentage` | sim | 0 a 90 (0 = sem oferta) |
+| `stock` | sim | 0 a 999999 |
+
+O preço de venda é calculado pela API a partir de custo, markup e desconto.
+
+### Endereços — `TB_ADDRESSES`
+
+| Método | Rota | Perfil | Descrição |
+|--------|------|--------|-----------|
+| `GET` | `/api/addresses` | CUSTOMER | Lista os endereços do cliente logado |
+| `GET` | `/api/addresses/{id}` | CUSTOMER | Busca por id (404 se não existe ou é de outro cliente) |
+| `GET` | `/api/addresses/cep/{cep}` | CUSTOMER | Consulta o ViaCEP (404 CEP não encontrado; 502 ViaCEP fora) |
+| `POST` | `/api/addresses` | CUSTOMER | Cria (201) |
+| `PUT` | `/api/addresses/{id}` | CUSTOMER | Atualiza (200) |
+| `DELETE` | `/api/addresses/{id}` | CUSTOMER | Exclui (204); os pedidos mantêm a cópia |
+
+| Campo | Obrigatório | Regra |
+|-------|:-----------:|-------|
+| `label` | não | até 40 caracteres ("Casa", "Trabalho") |
+| `cep` | sim | 8 dígitos; aceita com ou sem hífen |
+| `street` | sim | até 120 caracteres |
+| `number` | sim | até 10 caracteres |
+| `complement` | não | até 60 caracteres |
+| `district`, `city` | sim | até 60 caracteres |
+| `uf` | sim | 2 letras maiúsculas |
+
+### Zonas de entrega — `TB_DELIVERY_ZONES`
+
+| Método | Rota | Perfil | Descrição |
+|--------|------|--------|-----------|
+| `GET` | `/api/delivery-zones` | ADMIN | Lista as zonas |
+| `GET` | `/api/delivery-zones/{id}` | ADMIN | Busca por id |
+| `POST` | `/api/delivery-zones` | ADMIN | Cria (201; 400 faixa inválida ou sobreposta; 409 nome repetido) |
+| `PUT` | `/api/delivery-zones/{id}` | ADMIN | Atualiza (200) |
+| `DELETE` | `/api/delivery-zones/{id}` | ADMIN | Exclui (204); pedidos já feitos não mudam |
+
+| Campo | Obrigatório | Regra |
+|-------|:-----------:|-------|
+| `name` | sim | até 60 caracteres, único |
+| `cepStart`, `cepEnd` | sim | 8 dígitos; início ≤ fim; a faixa não pode sobrepor outra zona |
+| `fee` | sim | 0 ou mais, 2 casas |
+| `deliveryDays` | sim | 1 a 30 |
+
+### Pedidos — `TB_ORDERS` e `TB_ORDER_ITEMS`
+
+| Método | Rota | Perfil | Descrição |
+|--------|------|--------|-----------|
+| `POST` | `/api/orders` | CUSTOMER | Cria o pedido e pede o pagamento (202 Accepted) |
+| `GET` | `/api/orders` | autenticado | Pedidos do cliente; o ADMIN vê todos |
+| `GET` | `/api/orders/{id}` | autenticado | Detalhe com itens, pagamento e entrega |
+| `POST` | `/api/orders/{id}/cancel` | CUSTOMER (dono) | Cancela até a entrega sair **(T5b, em andamento)** |
+| `DELETE` | `/api/orders/{id}` | ADMIN | Exclui pedido recusado ou cancelado **(T5b, em andamento)** |
+
+| Campo | Obrigatório | Regra |
+|-------|:-----------:|-------|
+| `addressId` | sim | endereço do próprio cliente (404 se não for) |
+| `items[].productId` | sim | produto existente |
+| `items[].quantity` | sim | 1 ou mais; sem estoque → 409 e nada é reservado |
+
+CEP fora de todas as zonas → 422 "Não entregamos no CEP …".
+
+### E-mails — `TB_EMAILS`
+
+| Método | Rota | Perfil | Descrição |
+|--------|------|--------|-----------|
+| `GET` | `/api/emails` | ADMIN | Lista os e-mails registrados |
+
+### Usuários — `TB_USERS`
+
+| Método | Rota | Perfil | Descrição |
+|--------|------|--------|-----------|
+| `GET` | `/api/users` | ADMIN | Lista os usuários **(T5b, em andamento)** |
+| `GET` | `/api/users/{id}` | ADMIN | Busca por id **(T5b, em andamento)** |
+| `PUT` | `/api/users/me` | autenticado | Edita nome, e-mail e senha, com a senha atual **(T5b, em andamento)** |
+| `PUT` | `/api/users/{id}` | ADMIN | Edita nome e e-mail **(T5b, em andamento)** |
+| `DELETE` | `/api/users/{id}` | ADMIN | Exclui; bloqueado se o cliente tem pedido **(T5b, em andamento)** |
+
+Hoje o cadastro de usuário é feito por `POST /api/auth/signup`.
+
+---
+
+## Regras de negócio
+
+| Regra | Como funciona |
+|-------|---------------|
+| Frete por faixa de CEP | O CEP do endereço precisa cair numa zona; a zona dá a taxa e o prazo. Sem zona, o pedido não é criado (422). |
+| Frete grátis | Itens a partir de **R$ 150,00** não pagam frete (`ShippingCalculator.FREE_SHIPPING_FROM`). |
+| Total do pedido | Itens + frete. O endereço é copiado para o pedido no momento da compra. |
+| Limite do banco embutido | O pagamento interno (regra do Tranquilo Bank) recusa total acima de **R$ 500,00**. Recusado, o estoque volta. |
+| Pagamento assíncrono | A autorização roda cerca de 3 s depois de criar o pedido. Sem resposta em 5 min, o pedido é recusado. |
+| Entrega | Depois da aprovação: `EM_SEPARACAO` → `SAIU_PARA_ENTREGA` → `ENTREGUE`, **20 s** por etapa (o job confere a cada 5 s). |
+| E-mail | Só para pedido aprovado, pelo Gmail. Cada tentativa fica em `TB_EMAILS` (`SENT` ou `ERROR`). |
+
+Zonas criadas na primeira subida:
+
+| Zona | Faixa de CEP | Taxa | Prazo |
+|------|--------------|-----:|------:|
+| Centro expandido SP | 01000-000 a 05999-999 | R$ 7,90 | 1 dia |
+| Grande SP oeste | 06000-000 a 06999-999 | R$ 14,90 | 2 dias |
+| Zona leste SP | 08000-000 a 08499-999 | R$ 9,90 | 1 dia |
+
+---
+
+## How To — deploy na Azure
+
+Pré-requisitos: Azure CLI, acesso à assinatura e ao projeto do Azure DevOps.
+
+**1. Entrar na assinatura certa**
 
 ```bash
-# Clonar o repositório
-git clone https://github.com/3BugBuddies/cp5-market-buddies.git
-cd cp5-market-buddies
-
-# Subir PostgreSQL e RabbitMQ
-docker compose up -d
+az login
+az account show
+az account set --subscription "<nome-da-assinatura>"   # se precisar trocar
 ```
 
-Depois, rodar pela IDE (ou com `./mvnw spring-boot:run` dentro de cada pasta) as três aplicações **nesta ordem**:
-
-1. `TranquiloBankApplication` — porta 8090
-2. `MarketbuddiesWorkerApplication` — sem porta
-3. `MarketbuddiesApiApplication` — porta 8080
-
-A ordem não é rígida: api e worker declaram as mesmas exchanges e filas no RabbitMQ (a declaração é idempotente), e o worker tenta o banco 3 vezes antes de recusar com "Banco indisponível". Subir o banco primeiro evita a recusa por indisponibilidade na primeira compra.
-
-| Recurso local | Endereço |
-|---------------|----------|
-| MarketBuddies API | http://localhost:8080 |
-| Tranquilo Bank | http://localhost:8090 |
-| MarketBuddies Worker | sem porta (só fila e HTTP de saída) |
-| Painel do RabbitMQ | http://localhost:15672 (guest / guest, só local) |
-| PostgreSQL | `localhost:5432`, banco `marketbuddies` |
-
-Sem configurar nada, os três serviços sobem com os padrões locais do `docker-compose.yml`. Para mudar algum valor (por exemplo, o Gmail que envia as confirmações), copie o `.env.example` da raiz para `.env` e preencha. O Spring Boot não lê o `.env` sozinho: carregue-o na Run Configuration da IntelliJ (plugin EnvFile ou "Environment variables") ou no terminal:
+**2. Criar a infraestrutura (uma vez)**
 
 ```bash
-cp .env.example .env
-set -a; source .env; set +a
+bash infra/infra-app.sh
 ```
 
-Sem `MAIL_USERNAME` e `MAIL_PASSWORD` (senha de app do Gmail), o pagamento continua funcionando e o envio é registrado como `ERROR`.
+O script pede a senha do admin do SQL Server. No fim, ele imprime a `DB_URL`, o `DB_USER` e a lista de variáveis
+secretas. Guarde esses dados para o passo 5.
 
----
+**3. Criar a service connection**
 
-## Segurança — Spring Security + JWT
+Azure DevOps → Project settings → Service connections → New service connection → Azure Resource Manager.
+Escopo: assinatura. Nome: `sc-marketbuddies`.
 
-![Fluxo de segurança com JWT](assets/seguranca-jwt.png)
+**4. Criar a pipeline**
 
-Seguimos o padrão JWT da aula de Spring Security, sem sessão, nas telas e na API. Depois do login, o token vai num cookie protegido nas telas e no header `Authorization: Bearer` na API (Postman). Toda requisição passa pelo mesmo filtro, que valida o token e identifica o usuário.
+Pipelines → New pipeline → Azure Repos Git → repositório `MarketBuddies` → *Existing Azure Pipelines YAML file* →
+`/azure-pipeline.yml`.
 
-- **Perfis:** o CUSTOMER compra e vê os próprios pedidos; o ADMIN gerencia os produtos e o dashboard e não compra. O visitante navega pela vitrine e pelo carrinho, e só faz login para finalizar a compra.
-- **Sem permissão:** as telas mostram a página 403 e a API responde 401 ou 403 em JSON.
-- **Autenticação automática:** não declaramos o provider de autenticação, como na aula. Com um único serviço de usuários e um único codificador de senha (BCrypt), o Spring Security monta o provider sozinho.
-- **Cadastro:** cria sempre um CUSTOMER, com e-mail único e senha guardada como hash.
-- **CSRF:** fica ligado nas telas, porque o cookie vai sozinho em toda requisição, e desligado na API, que usa o header.
+**5. Cadastrar as variáveis**
 
-<a href="assets/tela-login.png"><img src="assets/tela-login.png" alt="Tela de login com as contas de teste" width="640"></a>
+Edit → Variables. Cadastre `DB_URL` e `DB_USER`. Cadastre como secretas ("Keep this value secret"):
+`DB_PASSWORD`, `JWT_SECRET`, `ADMIN_PASSWORD`, `MAIL_USERNAME`, `MAIL_PASSWORD`. A tabela está em
+[Variáveis da pipeline](#variáveis-da-pipeline).
 
----
+**6. Rodar a pipeline**
 
-## Tratamento de Erros
+Run pipeline. O estágio CI compila e roda os testes (aba **Tests**). O estágio CD publica no Web App. Na primeira
+execução, autorize o uso da service connection e do environment `marketbuddies-prod`, se o Azure DevOps pedir.
 
-| Camada | Tratamento |
-|--------|-----------|
-| Telas | `ViewExceptionHandler` (`@ControllerAdvice`) renderiza `error/404` e `error/403`; erro de validação reabre o formulário (ou o modal) com a mensagem no campo |
-| API (`/api/**`) | `ApiExceptionHandler` (`@RestControllerAdvice`) devolve JSON `{timestamp, status, error, message, path, errors?}` |
-| Tranquilo Bank | mesmo corpo JSON; `400` para corpo inválido, com os erros por campo |
+**7. Acessar o app**
 
-| Situação na API | Status |
-|-----------------|-------:|
-| Corpo inválido (lista vazia, quantidade < 1) | 400 |
-| Sem token ou token inválido | 401 |
-| Perfil sem permissão | 403 |
-| Produto ou pedido inexistente | 404 |
-| Sem estoque (`OutOfStockException`), nenhum item baixa | 409 |
+https://marketbuddies-rm563925.azurewebsites.net
 
----
+A primeira subida demora alguns minutos: o Hibernate cria as tabelas e o seed cria o admin, a cliente de teste,
+os produtos e as zonas.
 
-## Mensageria — RabbitMQ
+**Para apagar tudo depois da correção:**
 
-![Fluxo de pagamento](assets/fluxo-pagamento.png)
-
-### Exchanges, routing keys e filas
-
-Três exchanges `direct` duráveis, uma por mensagem, como na demo do professor. A api **e** o worker declaram as três exchanges, as três filas e os três bindings (`RabbitMQConfig`), então qualquer serviço pode subir primeiro.
-
-| Fluxo | Exchange | Routing key | Fila | Publica → consome |
-|-------|----------|-------------|------|-------------------|
-| Pedido de pagamento | `payment-request-exchange` | `payment-request-routing-key` | `payment-request-queue` | api (`PaymentRequestProducer`) → worker (`PaymentRequestConsumer`) |
-| Resposta aprovada | `payment-response-success-exchange` | `payment-response-success-routing-key` | `payment-response-success-queue` | worker (`PaymentSuccessProducer`) → api (`PaymentResponseSuccessConsumer`) |
-| Resposta recusada | `payment-response-error-exchange` | `payment-response-error-routing-key` | `payment-response-error-queue` | worker (`PaymentErrorProducer`) → api (`PaymentResponseErrorConsumer`) |
-
-As mensagens são JSON (`JacksonJsonMessageConverter`, Jackson 3). Mensagem que falha no consumidor é descartada e logada (`default-requeue-rejected: false`), em vez de voltar à fila em loop.
-
-### Mensagens
-
-`PaymentRequestDto` (api → worker), pedido 42 com 1 café e 2 bananas:
-
-```json
-{
-  "orderId": 42,
-  "customerEmail": "cliente@marketbuddies.com",
-  "customerName": "Ana Souza",
-  "totalAmount": 30.47,
-  "items": [
-    { "productId": 7, "productName": "Café torrado e moído 500 g", "quantity": 1, "unitPrice": 18.71 },
-    { "productId": 1, "productName": "Banana prata (kg)", "quantity": 2, "unitPrice": 5.88 }
-  ],
-  "requestedAt": "2026-10-18T20:52:00"
-}
+```bash
+bash infra/destroy.sh
 ```
 
-`PaymentResponseDto` (worker → api), aprovado:
+---
 
-```json
-{ "orderId": 42, "approved": true, "authorizationCode": "TB-7F3A9C21", "reason": null, "respondedAt": "2026-10-18T20:52:01" }
+## How To — rodar localmente
+
+Localmente o banco é um PostgreSQL em Docker (a nuvem usa o Azure SQL).
+
+```bash
+git clone https://github.com/3BugBuddies/cp6-devops-market-buddies.git
+cd cp6-devops-market-buddies
+docker compose --profile app up -d --build
 ```
 
-Recusado:
+A API sobe em http://localhost:8080. Para subir só o banco e rodar a API pela IDE: `docker compose up -d`.
+Para mudar algum valor (Gmail, admin, JWT), copie `.env.example` para `.env` e preencha.
 
-```json
-{ "orderId": 43, "approved": false, "authorizationCode": null, "reason": "Valor acima do limite de R$ 500,00", "respondedAt": "2026-10-18T20:53:01" }
+---
+
+## Testes
+
+```bash
+mvn -f marketbuddies-api/pom.xml test
 ```
 
-### Regra do Tranquilo Bank
+Testes unitários, sem banco e sem rede. A pipeline roda os mesmos testes no `clean package` e publica o resultado.
 
-O banco **recusa** quando o total é **maior que R$ 500,00** (`tranquilo-bank.approval-limit` no `application.yaml`); caso contrário aprova e devolve um código `TB-` + 8 caracteres hexadecimais. A decisão de negócio volta sempre com `200`, aprovada ou recusada. O banco não guarda transações: cada decisão vai para o log (`Pedido 42 · R$ 33,83 · APROVADO TB-7F3A9C21`), e o registro oficial fica no pedido da api.
+| Classe | O que cobre |
+|--------|-------------|
+| `ShippingCalculatorTest` | frete grátis a partir de R$ 150,00; zona inexistente |
+| `TranquiloBankServiceTest` | limite de R$ 500,00 e código de autorização |
+| `PaymentRequestConsumerTest` | aprovado e recusado chamam o fluxo certo |
+| `OrderServiceTest` | cópia do endereço, total com frete, endereço de outro cliente, fora de zona |
+| `AddressServiceTest` | normalização do CEP, dono do endereço, exclusão |
+| `DeliveryZoneServiceTest` | faixa invertida e sobreposição de zonas |
+| `DeliveryProgressTest` | avanço da entrega por etapa; aprovação abre a entrega, recusa não |
+| `ViaCepClientTest` | resposta do ViaCEP, CEP inexistente e timeout |
 
-### Banco indisponível
-
-O `TranquiloBankClient` tenta **3 vezes**, com 1 segundo de espera entre elas. Se o banco continuar fora do ar, o worker publica uma resposta de erro com o motivo "Banco indisponível". A api marca o pedido como REFUSED e devolve o estoque reservado.
-
-### Estado do pedido e idempotência
-
-O pedido nasce `AWAITING_PAYMENT`, com o estoque já reservado de forma atômica, e só é publicado na fila **depois do commit**. A resposta muda o status por um `update` condicional (`… where status = 'AWAITING_PAYMENT'`): resposta repetida ou concorrente recebe 0 linhas e é ignorada, sem segundo e-mail nem segunda devolução de estoque. Um job marca como REFUSED ("Tempo esgotado") o pedido que fica mais de 5 minutos sem resposta.
-
-O log do worker com um pedido aprovado e outro recusado está na grade do [Painel do RabbitMQ](#painel-do-rabbitmq-e-testes-internos).
-
----
-
-## E-mail de Confirmação
-
-Enviado pelo **Gmail** (SMTP `smtp.gmail.com:587`, STARTTLS, senha de app) **somente quando o pagamento é aprovado**. Pedido recusado não gera e-mail.
-
-Como no `EmailService` do professor (`RabbitmqSpringEmail`), cada tentativa é gravada em `TB_EMAILS` (`EmailEntity`: `emailFrom`, `emailTo`, `subject`, `text`, `sendDateEmail`, `statusEmail`):
-
-- envio ok: `SENT`;
-- falha do SMTP (`MailException`): `ERROR` e a mensagem em `error_message`; o erro nunca volta para a fila nem desfaz o pagamento aprovado.
-
-O envio acontece depois que o status do pedido foi gravado, para não segurar conexão do banco durante o SMTP. Se o e-mail falhar, o dashboard mostra o badge de falha e o ADMIN pode usar "Reenviar e-mail".
-
-**Assunto:** `MarketBuddies · Pagamento confirmado do pedido #42`. **Corpo:** HTML montado pelo template Thymeleaf `templates/email/order-confirmation.html` (com alternativa em texto puro), com nome do cliente, itens com quantidade e preço, total, código de autorização e "Obrigado por comprar no MarketBuddies!".
-
-> **E-mail no deploy:** o plano Trial do Railway bloqueia SMTP de saída ("SMTP is only available on the Pro plan and above", [documentação](https://docs.railway.com/reference/outbound-networking)). Por isso, no deploy o envio fica registrado como `ERROR` (timeout na porta 587), e o resto do fluxo funciona normalmente. Rodando local, o e-mail chega, como mostra o [vídeo](https://youtu.be/Nd90oGEn78A). O ADMIN pode usar "Reenviar e-mail" no dashboard.
-
-<a href="assets/email-confirmacao.png"><img src="assets/email-confirmacao.png" alt="E-mail de confirmação recebido no Gmail" width="640"></a>
+Ficam em `marketbuddies-api/src/test/java/br/com/fiap/marketbuddies/api/`.
 
 ---
 
-## Variáveis de Ambiente
+## Evidência no banco
 
-Nenhuma senha fica no repositório; o modelo com todas as variáveis está em `.env.example`. Cada `application.yaml` lê as configurações no formato `${VARIAVEL:padrão}`: o padrão é o ambiente local do `docker-compose.yml`, e no Railway as variáveis são cadastradas em cada serviço.
+No portal: SQL Database `marketbuddies` → Query editor, com o usuário `mbadmin`.
 
-### MarketBuddies API
+```sql
+-- tabelas criadas pelo Hibernate
+SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES ORDER BY TABLE_NAME;
 
-| Variável | Padrão local | Descrição |
-|----------|--------------|-----------|
-| `PORT` | `8080` | Porta HTTP (o Railway injeta a dele) |
-| `DB_URL` | `jdbc:postgresql://localhost:5432/marketbuddies` | URL JDBC do PostgreSQL |
-| `DB_USER` | `marketbuddies` | Usuário do banco |
-| `DB_PASSWORD` | `marketbuddies` | Senha do banco |
-| `DDL_AUTO` | `update` | Estratégia do Hibernate para o schema |
-| `SHOW_SQL` | `false` | Mostra o SQL no log |
-| `RABBITMQ_HOST` | `localhost` | Host do RabbitMQ |
-| `RABBITMQ_PORT` | `5672` | Porta AMQP |
-| `RABBITMQ_USER` | `guest` | Usuário do RabbitMQ |
-| `RABBITMQ_PASSWORD` | `guest` | Senha do RabbitMQ |
-| `MAIL_HOST` | `smtp.gmail.com` | Servidor SMTP |
-| `MAIL_PORT` | `587` | Porta SMTP (STARTTLS) |
-| `MAIL_USERNAME` | — | Conta Gmail que envia as confirmações (também é o remetente) |
-| `MAIL_PASSWORD` | — | Senha de app do Gmail (exige verificação em duas etapas) |
-| `JWT_SECRET` | chave de desenvolvimento | Chave HS256 do token, 32 caracteres ou mais. No Railway é uma chave aleatória |
-| `ADMIN_EMAIL` | `admin@marketbuddies.com` | E-mail do ADMIN criado pelo seed |
-| `ADMIN_PASSWORD` | `admin123` | Senha do ADMIN. O padrão só vale local; no Railway é obrigatório trocar |
+-- endereços de cada cliente
+SELECT u.id AS user_id, u.full_name, a.id AS address_id, a.label, a.cep, a.city, a.uf
+FROM TB_USERS u
+JOIN TB_ADDRESSES a ON a.user_id = u.id
+ORDER BY u.id, a.id;
 
-### MarketBuddies Worker
+-- pedidos com cliente, endereço de origem (pode ser nulo) e cópia do endereço
+SELECT TOP 20 o.id AS order_id, u.full_name, o.status, o.total_amount, o.shipping_fee,
+       o.delivery_status, o.address_id, a.label AS endereco_atual, o.delivery_cep, o.delivery_street
+FROM TB_ORDERS o
+JOIN TB_USERS u ON u.id = o.user_id
+LEFT JOIN TB_ADDRESSES a ON a.id = o.address_id
+ORDER BY o.id DESC;
 
-| Variável | Padrão local | Descrição |
-|----------|--------------|-----------|
-| `RABBITMQ_HOST` | `localhost` | Host do RabbitMQ |
-| `RABBITMQ_PORT` | `5672` | Porta AMQP |
-| `RABBITMQ_USER` | `guest` | Usuário do RabbitMQ |
-| `RABBITMQ_PASSWORD` | `guest` | Senha do RabbitMQ |
-| `TRANQUILO_BANK_URL` | `http://localhost:8090` | Endereço da API do Tranquilo Bank (no Railway, a URL da rede privada) |
+-- zonas e produtos
+SELECT * FROM TB_DELIVERY_ZONES ORDER BY cep_start;
+SELECT id, name, price, stock FROM TB_PRODUCTS ORDER BY id;
 
-### Tranquilo Bank
+-- itens e e-mails de um pedido
+SELECT * FROM TB_ORDER_ITEMS WHERE order_id = <id>;
+SELECT id, email_to, subject, status_email FROM TB_EMAILS WHERE order_id = <id>;
+```
 
-| Variável | Padrão local | Descrição |
-|----------|--------------|-----------|
-| `PORT` | `8090` | Porta HTTP |
-
-O limite de aprovação (R$ 500,00) não é variável de ambiente: fica em `tranquilo-bank.approval-limit`, no `application.yaml`.
+Depois de excluir um endereço, o pedido continua com `delivery_*` preenchido e `address_id` nulo.
 
 ---
 
-## Credenciais de Teste
+## JSONs dos CRUDs
+
+- Pasta [`json/`](json/): um arquivo por operação de escrita de cada tabela (atualizados na T8).
+- Coleção do Postman: [`postman/marketbuddies.postman_collection.json`](postman/marketbuddies.postman_collection.json)
+  (atualizada na T8).
+
+Importe a coleção no Postman e rode primeiro o login: ele grava o token usado nas outras requests.
+
+---
+
+## Credenciais de teste
 
 | Perfil | E-mail | Senha |
 |--------|--------|-------|
 | CUSTOMER | `cliente@marketbuddies.com` | `cliente123` |
-| ADMIN | exibido na tela de login e no `.txt` da entrega | exibida na tela de login e no `.txt` da entrega |
+| ADMIN | `admin@marketbuddies.com` | valor de `ADMIN_PASSWORD` (local: `admin123`) |
 
-A conta de cliente é criada pelo seed (nome "Ana Souza"). A tela de login mostra as duas contas, cliente e ADMIN, no quadro "Contas de teste", com botão de copiar o e-mail e a senha.
-
----
-
-## Modelo de Dados
-
-![Diagrama ER](assets/diagrama-er.png)
-
-<!-- print pendente: assets/banco-tabelas.png (as 5 tabelas no PostgreSQL) -->
+A conta de cliente é criada pelo seed (Ana Souza), com um endereço na Avenida Paulista. Na nuvem, a senha do ADMIN
+é a variável secreta `ADMIN_PASSWORD` da pipeline e vai no `.txt` da entrega.
 
 ---
 
-## Telas da Aplicação
+## Estrutura do repositório
 
-Prints do deploy no Railway, na ordem do fluxo de compra e depois da gerência. Clique numa imagem para ver em tamanho real.
-
-<table>
-  <tr>
-    <td align="center" valign="top"><a href="assets/tela-landing.png"><img src="assets/tela-landing.png" alt="Landing page" width="280"></a><br><sub>Landing page</sub></td>
-    <td align="center" valign="top"><a href="assets/tela-cadastro.png"><img src="assets/tela-cadastro.png" alt="Cadastro com erro de validação" width="280"></a><br><sub>Cadastro com erro de validação</sub></td>
-    <td align="center" valign="top"><a href="assets/tela-vitrine.png"><img src="assets/tela-vitrine.png" alt="Vitrine com fotos e filtros" width="280"></a><br><sub>Vitrine com fotos e filtros</sub></td>
-  </tr>
-  <tr>
-    <td align="center" valign="top"><a href="assets/tela-detalhe.png"><img src="assets/tela-detalhe.png" alt="Detalhe do produto em oferta" width="280"></a><br><sub>Detalhe do produto em oferta</sub></td>
-    <td align="center" valign="top"><a href="assets/tela-carrinho-preview.png"><img src="assets/tela-carrinho-preview.png" alt="Preview do carrinho no hover" width="280"></a><br><sub>Preview do carrinho no hover</sub></td>
-    <td align="center" valign="top"><a href="assets/tela-carrinho.png"><img src="assets/tela-carrinho.png" alt="Carrinho do visitante" width="280"></a><br><sub>Carrinho do visitante</sub></td>
-  </tr>
-  <tr>
-    <td align="center" valign="top"><a href="assets/tela-checkout.png"><img src="assets/tela-checkout.png" alt="Revisar e pagar" width="280"></a><br><sub>Revisar e pagar</sub></td>
-    <td align="center" valign="top"><a href="assets/tela-pedido-aprovado.png"><img src="assets/tela-pedido-aprovado.png" alt="Pagamento confirmado" width="280"></a><br><sub>Pagamento confirmado</sub></td>
-    <td align="center" valign="top"><a href="assets/tela-pedido-recusado.png"><img src="assets/tela-pedido-recusado.png" alt="Pagamento recusado" width="280"></a><br><sub>Pagamento recusado</sub></td>
-  </tr>
-  <tr>
-    <td align="center" valign="top"><a href="assets/tela-meus-pedidos.png"><img src="assets/tela-meus-pedidos.png" alt="Meus pedidos (cliente)" width="280"></a><br><sub>Meus pedidos (cliente)</sub></td>
-    <td align="center" valign="top"><a href="assets/tela-gestao.png"><img src="assets/tela-gestao.png" alt="Gestão de produtos (ADMIN)" width="280"></a><br><sub>Gestão de produtos (ADMIN)</sub></td>
-    <td align="center" valign="top"><a href="assets/tela-modal-editar.png"><img src="assets/tela-modal-editar.png" alt="Modal de edição com preço calculado" width="280"></a><br><sub>Modal de edição com preço calculado</sub></td>
-  </tr>
-  <tr>
-    <td align="center" valign="top"><a href="assets/tela-admin-pedidos.png"><img src="assets/tela-admin-pedidos.png" alt="Pedidos da gerência com filtro" width="280"></a><br><sub>Pedidos da gerência com filtro</sub></td>
-    <td align="center" valign="top"><a href="assets/tela-403.png"><img src="assets/tela-403.png" alt="Página 403 para o cliente" width="280"></a><br><sub>Página 403 para o cliente</sub></td>
-    <td align="center" valign="top"><a href="assets/tela-dashboard.png"><img src="assets/tela-dashboard.png" alt="Dashboard da gerência" width="280"></a><br><sub>Dashboard da gerência</sub></td>
-    <td align="center" valign="top"><a href="assets/tela-celular.png"><img src="assets/tela-celular.png" alt="Vitrine no celular (390 px)" width="280"></a><br><sub>Vitrine no celular (390 px)</sub></td>
-  </tr>
-</table>
+```
+cp6-devops-market-buddies/
+├── azure-pipeline.yml          pipeline CI/CD (estágios CI e CD)
+├── infra/
+│   ├── infra-app.sh            cria os recursos na Azure (rodar uma vez)
+│   └── destroy.sh              apaga o resource group
+├── docs/
+│   ├── pipeline.md             ordem de execução e variáveis
+│   └── arquitetura/            fonte do desenho de arquitetura
+├── assets/                     imagens do README
+├── postman/                    coleção do Postman
+├── docker-compose.yml          PostgreSQL local (e a API no profile app)
+├── .env.example                modelo das variáveis locais
+└── marketbuddies-api/          API Spring Boot
+    ├── pom.xml
+    └── src/
+        ├── main/java/…/api/    controllers, services, entities, repositories, dtos, clients, configs
+        ├── main/resources/     application.yaml, telas Thymeleaf, CSS e JS
+        └── test/java/…/api/    testes unitários
+```
 
 ---
 
-## Testes com Postman
+## Tecnologias
 
-A coleção está em [`postman/marketbuddies.postman_collection.json`](postman/marketbuddies.postman_collection.json); os JSONs completos estão em [`postman/exemplos.md`](postman/exemplos.md).
-
-### Como importar
-
-1. Postman → **Import** → selecione `postman/marketbuddies.postman_collection.json`.
-2. Confira as variáveis da coleção:
-
-| Variável | Valor padrão | Uso |
-|----------|--------------|-----|
-| `{{api}}` | `https://marketbuddies-api-production.up.railway.app` | URL da API (local: `http://localhost:8080`) |
-| `{{bank}}` | `https://tranquilo-bank-production.up.railway.app` | URL do Tranquilo Bank (local: `http://localhost:8090`) |
-| `{{adminPassword}}` | vazia | Senha do ADMIN: copie do quadro "Contas de teste" da tela de login |
-| `{{token}}` / `{{adminToken}}` / `{{orderId}}` / `{{productId}}` | vazias | Preenchidas pelos scripts de teste |
-
-O login do cliente já vai com a conta de exemplo (`cliente@marketbuddies.com` / `cliente123`), e o do ADMIN com o e-mail `3bugbuddies@gmail.com`.
-
-3. Rode a coleção na ordem: a pasta **1. Autenticação** grava os tokens usados no resto.
-
-### Endpoints da API
-
-| Pasta | Requests |
-|-------|----------|
-| 1. Autenticação | `POST /api/auth/signup` (cadastro, 201) · cadastro com e-mail repetido (409) · `POST /api/auth/login` cliente e ADMIN (200) · login inválido (401) · `GET /api/auth/me` |
-| 2. Produtos | `GET /api/products` · `GET /api/products/{id}` · `POST /api/products` (ADMIN, 201, preço calculado) · criar como cliente (403) · criar inválido (400) · `PUT /api/products/{id}` · `DELETE /api/products/{id}` (204) · detalhe do excluído (404) |
-| 3. Compras | `POST /api/orders` aprovada e recusada (202) · `GET /api/orders/{id}` · `GET /api/orders` (meus pedidos; ADMIN vê todos) · sem estoque (409) · sem token (401) · corpo inválido (400) |
-| 4. E-mails | `GET /api/emails` (ADMIN) |
-| 5. Tranquilo Bank | `POST /api/payments/authorize` aprovado, recusado e inválido |
-
-### Fluxo do login
-
-A request de login chama `POST {{api}}/api/auth/login`, e o script de teste dela grava o `accessToken` da resposta em `{{token}}` (o login do ADMIN grava em `{{adminToken}}`). As demais requests usam `Authorization: Bearer {{token}}`. A request de compra grava o `id` do pedido em `{{orderId}}`, que a consulta do pedido reaproveita. Cada request tem testes de status.
-
-### Prints
-
-Executados no Postman contra o deploy. Clique numa imagem para ver em tamanho real. No print de e-mails, o `errorMessage` mostra o timeout do SMTP, que o plano Trial do Railway bloqueia.
-
-<table>
-  <tr>
-    <td align="center" valign="top"><a href="assets/postman-cadastro.png"><img src="assets/postman-cadastro.png" alt="Cadastro de cliente (201)" width="280"></a><br><sub>Cadastro de cliente (201)</sub></td>
-    <td align="center" valign="top"><a href="assets/postman-cadastro-duplicado.png"><img src="assets/postman-cadastro-duplicado.png" alt="E-mail duplicado (409)" width="280"></a><br><sub>E-mail duplicado (409)</sub></td>
-    <td align="center" valign="top"><a href="assets/postman-login.png"><img src="assets/postman-login.png" alt="Login do cliente (200)" width="280"></a><br><sub>Login do cliente (200)</sub></td>
-  </tr>
-  <tr>
-    <td align="center" valign="top"><a href="assets/postman-me.png"><img src="assets/postman-me.png" alt="Me (200)" width="280"></a><br><sub>Me (200)</sub></td>
-    <td align="center" valign="top"><a href="assets/postman-produtos.png"><img src="assets/postman-produtos.png" alt="Listar produtos (200)" width="280"></a><br><sub>Listar produtos (200)</sub></td>
-    <td align="center" valign="top"><a href="assets/postman-produto-detalhe.png"><img src="assets/postman-produto-detalhe.png" alt="Detalhe do produto (200)" width="280"></a><br><sub>Detalhe do produto (200)</sub></td>
-  </tr>
-  <tr>
-    <td align="center" valign="top"><a href="assets/postman-produto-invalido.png"><img src="assets/postman-produto-invalido.png" alt="Criar produto inválido (400)" width="280"></a><br><sub>Criar produto inválido (400)</sub></td>
-    <td align="center" valign="top"><a href="assets/postman-produto-criar.png"><img src="assets/postman-produto-criar.png" alt="Criar produto, ADMIN (201)" width="280"></a><br><sub>Criar produto, ADMIN (201)</sub></td>
-    <td align="center" valign="top"><a href="assets/postman-produto-criado.png"><img src="assets/postman-produto-criado.png" alt="Detalhe do produto criado (200)" width="280"></a><br><sub>Detalhe do produto criado (200)</sub></td>
-  </tr>
-  <tr>
-    <td align="center" valign="top"><a href="assets/postman-produto-excluir.png"><img src="assets/postman-produto-excluir.png" alt="Excluir produto, ADMIN (204)" width="280"></a><br><sub>Excluir produto, ADMIN (204)</sub></td>
-    <td align="center" valign="top"><a href="assets/postman-produto-excluido.png"><img src="assets/postman-produto-excluido.png" alt="Detalhe do excluído (404)" width="280"></a><br><sub>Detalhe do excluído (404)</sub></td>
-    <td align="center" valign="top"><a href="assets/postman-compra-aprovada.png"><img src="assets/postman-compra-aprovada.png" alt="Compra aprovada (202)" width="280"></a><br><sub>Compra aprovada (202)</sub></td>
-  </tr>
-  <tr>
-    <td align="center" valign="top"><a href="assets/postman-compra-recusada.png"><img src="assets/postman-compra-recusada.png" alt="Compra acima de R$ 500 (202)" width="280"></a><br><sub>Compra acima de R$ 500 (202)</sub></td>
-    <td align="center" valign="top"><a href="assets/postman-meus-pedidos.png"><img src="assets/postman-meus-pedidos.png" alt="Meus pedidos (200)" width="280"></a><br><sub>Meus pedidos (200)</sub></td>
-    <td align="center" valign="top"><a href="assets/postman-emails.png"><img src="assets/postman-emails.png" alt="E-mails enviados, ADMIN (200)" width="280"></a><br><sub>E-mails enviados, ADMIN (200)</sub></td>
-  </tr>
-</table>
-
-### Requests e respostas
-
-<details>
-<summary>Ver o corpo e a resposta JSON de cada request</summary>
-
-**1. Login (cliente)** — `POST {{api}}/api/auth/login`, resposta `200`.
-
-```json
-{ "email": "cliente@marketbuddies.com", "password": "cliente123" }
-```
-
-```json
-{ "accessToken": "eyJhbGciOiJIUzI1NiJ9...", "tokenType": "Bearer", "expiresIn": 3600000 }
-```
-
-**2. Login inválido** — mesma request com senha errada, resposta `401`.
-
-```json
-{ "timestamp": "2026-10-18T20:50:00", "status": 401, "error": "Unauthorized", "message": "Usuário ou senha inválidos", "path": "/api/auth/login" }
-```
-
-**3. Listar produtos** — `GET {{api}}/api/products`, público, resposta `200` com a lista de produtos (com preço, preço final e desconto; sem custo nem markup).
-
-**4. Compra aprovada** — `POST {{api}}/api/orders`, `Bearer`, total de R$ 30,47 (abaixo do limite), resposta `202 Accepted` com `Location: /api/orders/42`. O comprador é o dono do token.
-
-```json
-{ "items": [ { "productId": 7, "quantity": 1 }, { "productId": 1, "quantity": 2 } ] }
-```
-
-```json
-{
-  "id": 42,
-  "status": "AWAITING_PAYMENT",
-  "totalAmount": 30.47,
-  "customerEmail": "cliente@marketbuddies.com",
-  "createdAt": "2026-10-18T20:52:00",
-  "items": [
-    { "productName": "Café torrado e moído 500 g", "quantity": 1, "unitPrice": 18.71 },
-    { "productName": "Banana prata (kg)", "quantity": 2, "unitPrice": 5.88 }
-  ]
-}
-```
-
-**5. Consultar pedido aprovado** — `GET {{api}}/api/orders/{{orderId}}` cerca de 2 s depois, resposta `200`.
-
-```json
-{
-  "id": 42,
-  "status": "APPROVED",
-  "totalAmount": 30.47,
-  "customerEmail": "cliente@marketbuddies.com",
-  "createdAt": "2026-10-18T20:52:00",
-  "respondedAt": "2026-10-18T20:52:01",
-  "authorizationCode": "TB-7F3A9C21",
-  "refusalReason": null,
-  "statusEmail": "SENT",
-  "items": [
-    { "productName": "Café torrado e moído 500 g", "quantity": 1, "unitPrice": 18.71 },
-    { "productName": "Banana prata (kg)", "quantity": 2, "unitPrice": 5.88 }
-  ]
-}
-```
-
-**6. Compra recusada (acima de R$ 500)** — `POST {{api}}/api/orders`, 17 cafés + 21 maçãs = R$ 524,08. Responde `202` (o pedido nasce aguardando) e, na consulta seguinte, `REFUSED`.
-
-```json
-{ "items": [ { "productId": 7, "quantity": 17 }, { "productId": 2, "quantity": 21 } ] }
-```
-
-```json
-{
-  "id": 43,
-  "status": "REFUSED",
-  "totalAmount": 524.08,
-  "customerEmail": "cliente@marketbuddies.com",
-  "createdAt": "2026-10-18T20:53:00",
-  "respondedAt": "2026-10-18T20:53:01",
-  "authorizationCode": null,
-  "refusalReason": "Valor acima do limite de R$ 500,00",
-  "statusEmail": null
-}
-```
-
-**7. Compra sem estoque** — `POST {{api}}/api/orders` com `quantity` 999, resposta `409`; nenhum item baixa.
-
-```json
-{ "timestamp": "2026-10-18T20:54:00", "status": 409, "error": "Conflict", "message": "Sem estoque para Café torrado e moído 500 g (pedido 999, disponível 18)", "path": "/api/orders" }
-```
-
-**8. Compra sem token** — `POST {{api}}/api/orders` sem o header `Authorization`, resposta `401`.
-
-```json
-{ "timestamp": "2026-10-18T20:54:30", "status": 401, "error": "Unauthorized", "message": "Autenticação necessária", "path": "/api/orders" }
-```
-
-**9. Corpo inválido** — `POST {{api}}/api/orders` com `{ "items": [] }`, resposta `400`.
-
-```json
-{
-  "timestamp": "2026-10-18T20:55:00",
-  "status": 400,
-  "error": "Bad Request",
-  "message": "Dados inválidos",
-  "path": "/api/orders",
-  "errors": { "items": "O pedido precisa ter ao menos um item" }
-}
-```
-
-**10. E-mails enviados** — `GET {{api}}/api/emails` com o `Bearer` de ADMIN, resposta `200` com os registros de `TB_EMAILS` (`SENT`/`ERROR`), do mais recente ao mais antigo.
-
-**11. Tranquilo Bank — aprovado** — `POST {{bank}}/api/payments/authorize`, resposta `200`.
-
-```json
-{ "orderId": 42, "amount": 33.83, "customerEmail": "cliente@marketbuddies.com" }
-```
-
-```json
-{ "orderId": 42, "approved": true, "authorizationCode": "TB-7F3A9C21", "reason": null, "processedAt": "2026-10-18T20:52:01" }
-```
-
-**12. Tranquilo Bank — recusado** — mesma request com `"amount": 523.88`, resposta `200`.
-
-```json
-{ "orderId": 43, "approved": false, "authorizationCode": null, "reason": "Valor acima do limite de R$ 500,00", "processedAt": "2026-10-18T20:53:01" }
-```
-
-**13. Tranquilo Bank — inválido** — mesma request sem `amount`, resposta `400`.
-
-```json
-{
-  "timestamp": "2026-10-18T20:56:00",
-  "status": 400,
-  "error": "Bad Request",
-  "message": "Dados inválidos",
-  "path": "/api/payments/authorize",
-  "errors": { "amount": "O valor é obrigatório" }
-}
-```
-
-> Os JSONs acima são os de `postman/exemplos.md`. Datas, ids e códigos de autorização mudam a cada execução.
-
-</details>
-
----
-
-## Painel do RabbitMQ e Testes Internos
-
-Painel no Railway: https://rabbitmq-production-e3dc.up.railway.app (usuário e senha no `.txt` da entrega). Local: http://localhost:15672.
-
-Clique numa imagem para ver em tamanho real.
-
-<table>
-  <tr>
-    <td align="center" valign="top"><a href="assets/rabbitmq-exchanges.png"><img src="assets/rabbitmq-exchanges.png" alt="Exchanges: as três direct" width="280"></a><br><sub>Exchanges: as três direct</sub></td>
-    <td align="center" valign="top"><a href="assets/rabbitmq-conexoes.png"><img src="assets/rabbitmq-conexoes.png" alt="Conexões: api e worker" width="280"></a><br><sub>Conexões: api e worker</sub></td>
-    <td align="center" valign="top"><a href="assets/rabbitmq-filas.png"><img src="assets/rabbitmq-filas.png" alt="Filas: as três filas" width="280"></a><br><sub>Filas: as três filas</sub></td>
-  </tr>
-  <tr>
-    <td align="center" valign="top"><a href="assets/rabbitmq-mensagem.png"><img src="assets/rabbitmq-mensagem.png" alt="Get messages: JSON do pedido na fila" width="280"></a><br><sub>Get messages: JSON do pedido na fila</sub></td>
-    <td align="center" valign="top"><a href="assets/rabbitmq-publicar.png"><img src="assets/rabbitmq-publicar.png" alt="Teste interno: Publish message" width="280"></a><br><sub>Teste interno: Publish message</sub></td>
-    <td align="center" valign="top"><a href="assets/worker-log.png"><img src="assets/worker-log.png" alt="Log do worker: aprovado e recusado" width="280"></a><br><sub>Log do worker: aprovado e recusado</sub></td>
-  </tr>
-</table>
-
-### Testes internos (RabbitMQ Monitor)
-
-O enunciado pede "testes internos do RabbitMQ Monitor". Roteiro:
-
-1. **Publicar pelo painel:** em `payment-request-exchange`, "Publish message" com um `PaymentRequestDto` e routing key `payment-request-routing-key`. Esperado: uma mensagem chega em `payment-response-success-queue` (valor até R$ 500,00) ou em `payment-response-error-queue` (valor acima).
-   O print "Teste interno: Publish message" na grade acima mostra esse passo em produção.
-2. **Banco parado:** com o `tranquilo-bank` desligado, publicar de novo. Esperado: depois de 3 tentativas, uma mensagem em `payment-response-error-queue` com "Banco indisponível".
-3. **Resposta repetida:** reenviar na fila de sucesso a resposta de um pedido já aprovado. Esperado: nada muda na tela e nenhuma linha nova no banco (log "resposta ignorada").
-4. **Compra de ponta a ponta:** comprar pela tela e acompanhar os contadores das três filas.
-
----
-
-## Dashboard da Gerência
-
-Tela `/admin/dashboard` (ADMIN), com Chart.js. Os dados vêm do banco; o lucro usa o custo gravado no item (foto do momento).
-
-**KPIs:** vendas de hoje; pedidos pagos hoje (com recusados e aguardando); ticket médio; lucro de hoje e % das vendas; markup médio do catálogo; produtos com estoque ≤ 5.
-
-**Gráficos:** vendas × lucro dos últimos 7 dias; vendas da semana por categoria; estoque por produto (vermelho quando ≤ 5).
-
-**Últimas 10 compras:** tabela com badge de pagamento e de e-mail e o botão "Reenviar e-mail" para pedido aprovado sem e-mail ou com `ERROR`.
-
-<a href="assets/tela-dashboard.png"><img src="assets/tela-dashboard.png" alt="Dashboard da gerência no deploy" width="640"></a>
-
----
-
-## Tecnologias Utilizadas
-
-- **Java 21**
-- **Spring Boot 4.1.1**
-- **Spring Web (MVC) + Thymeleaf** (telas e e-mail HTML)
-- **Spring Security + JWT** (jjwt 0.12.6)
-- **Spring Data JPA + Hibernate**
-- **PostgreSQL**
-- **Spring for RabbitMQ** (RabbitMQ 4)
-- **Java Mail Sender** (Gmail SMTP)
-- **Chart.js 4.4.1** (dashboard)
-- **Lombok**
-- **Postman**
-- **Docker** e **Railway**
-- **Maven**
+- Java 21 e Spring Boot 4.1.1 (Web MVC, Data JPA, Security, Validation, Mail, Thymeleaf)
+- JWT (jjwt)
+- Hibernate
+- Azure SQL Database na nuvem; PostgreSQL em Docker no desenvolvimento (driver trocado na T6)
+- Azure Web App Linux, App Service Plan, Application Insights
+- Azure DevOps: Boards, Repos e Pipelines (YAML)
+- Azure CLI
+- ViaCEP e Gmail SMTP
+- Chart.js (dashboard)
+- Maven, JUnit e Postman
