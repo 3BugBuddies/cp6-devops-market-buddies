@@ -5,6 +5,8 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 
@@ -32,7 +34,8 @@ public class EmailEntity {
     @Column(nullable = false, length = 200)
     private String subject;
 
-    @Column(columnDefinition = "TEXT")
+    /** text no Postgres, varchar(max) no SQL Server. */
+    @JdbcTypeCode(SqlTypes.LONGVARCHAR)
     private String text;
 
     @Column(nullable = false)
