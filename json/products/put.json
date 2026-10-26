@@ -1,0 +1,9 @@
+{
+  "name": "Suco de uva integral 1 L",
+  "category": "BEVERAGES",
+  "description": "Atualizado pela coleção do Postman: 10% de oferta.",
+  "cost": 10.00,
+  "markupPercentage": 50,
+  "discountPercentage": 10,
+  "stock": 480
+}
