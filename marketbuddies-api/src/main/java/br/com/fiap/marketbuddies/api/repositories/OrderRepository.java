@@ -61,6 +61,22 @@ public interface OrderRepository extends JpaRepository<OrderEntity, Long> {
                         @Param("limit") LocalDateTime limit,
                         @Param("now") LocalDateTime now);
 
+    /** Cancela enquanto aguarda pagamento ou está em separação; devolve 0 se já saiu para entrega ou já terminou. */
+    @Modifying(clearAutomatically = true)
+    @Query("""
+            update OrderEntity o
+               set o.status = br.com.fiap.marketbuddies.api.enums.OrderStatus.CANCELED,
+                   o.deliveryStatus = null,
+                   o.deliveryUpdatedAt = null
+             where o.id = :id
+               and (o.status = br.com.fiap.marketbuddies.api.enums.OrderStatus.AWAITING_PAYMENT
+                    or (o.status = br.com.fiap.marketbuddies.api.enums.OrderStatus.APPROVED
+                        and o.deliveryStatus = br.com.fiap.marketbuddies.api.enums.DeliveryStatus.EM_SEPARACAO))
+            """)
+    int cancel(@Param("id") Long id);
+
+    boolean existsByCustomer_Id(Long customerId);
+
     List<OrderEntity> findByStatusAndCreatedAtBefore(OrderStatus status, LocalDateTime limit);
 
     @EntityGraph(attributePaths = {"customer", "items", "items.product"})

@@ -3,6 +3,7 @@ package br.com.fiap.marketbuddies.api.repositories;
 import br.com.fiap.marketbuddies.api.entities.EmailEntity;
 import br.com.fiap.marketbuddies.api.enums.StatusEmail;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -15,6 +16,10 @@ public interface EmailRepository extends JpaRepository<EmailEntity, Long> {
     Optional<EmailEntity> findFirstByOrder_IdOrderByIdDesc(Long orderId);
 
     List<EmailEntity> findTop50ByOrderByIdDesc();
+
+    @Modifying
+    @Query("delete from EmailEntity e where e.order.id = :orderId")
+    int deleteByOrderId(@Param("orderId") Long orderId);
 
     interface OrderEmailStatus {
         Long getOrderId();
