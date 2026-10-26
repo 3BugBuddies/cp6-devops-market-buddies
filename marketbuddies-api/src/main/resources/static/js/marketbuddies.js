@@ -37,6 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function pollOrderStatus(section) {
   const url = section.dataset.orderStatusUrl;
   const waitEmail = section.dataset.orderWait === 'email';
+  const delivery = section.dataset.orderDelivery;
   let attempts = 0;
   const timer = setInterval(async () => {
     if (++attempts > 45) {
@@ -51,7 +52,9 @@ function pollOrderStatus(section) {
         return;
       }
       const body = await response.json();
-      const done = waitEmail ? body.statusEmail : body.status && body.status !== 'AWAITING_PAYMENT';
+      const done = delivery !== undefined
+        ? (waitEmail && body.statusEmail) || (body.deliveryStatus ?? '') !== delivery
+        : body.status && body.status !== 'AWAITING_PAYMENT';
       if (done) {
         clearInterval(timer);
         window.location.reload();
@@ -159,6 +162,35 @@ document.addEventListener('DOMContentLoaded', () => {
     preview();
   }
 
+  const zoneModal = document.getElementById('zone-modal');
+  const zoneForm = zoneModal?.querySelector('[data-zone-form]');
+  if (zoneModal && zoneForm) {
+    const field = (name) => zoneForm.elements.namedItem(name);
+    const deleteButton = zoneForm.querySelector('[data-modal-delete]');
+    const open = (data) => {
+      zoneForm.querySelectorAll('.mb-field__error, [data-zone-global-error]').forEach((el) => el.remove());
+      zoneForm.querySelectorAll('.mb-input--error').forEach((el) => el.classList.remove('mb-input--error'));
+      const base = zoneForm.dataset.baseAction;
+      zoneForm.action = data.id ? base + '/' + data.id : base;
+      field('id').value = data.id || '';
+      field('name').value = data.name || '';
+      field('cepStart').value = data.cepStart || '';
+      field('cepEnd').value = data.cepEnd || '';
+      field('fee').value = data.fee || '';
+      field('deliveryDays').value = data.days || '';
+      document.getElementById('zm-title').textContent = data.id ? 'Editar zona' : 'Nova zona';
+      deleteButton.hidden = !data.id;
+      deleteButton.dataset.id = data.id || '';
+      deleteButton.dataset.name = data.name || '';
+      zoneModal.showModal();
+    };
+    document.querySelectorAll('[data-zone-new]').forEach((button) => button.addEventListener('click', () => open({})));
+    document.querySelectorAll('[data-zone-edit]').forEach((button) => button.addEventListener('click', () => open(button.dataset)));
+
+    deleteButton.dataset.id = field('id').value;
+    deleteButton.dataset.name = field('name').value;
+  }
+
   const deleteModal = document.getElementById('delete-modal');
   const deleteForm = deleteModal?.querySelector('[data-delete-form]');
   if (deleteModal && deleteForm) {
@@ -166,9 +198,10 @@ document.addEventListener('DOMContentLoaded', () => {
       deleteForm.action = deleteForm.dataset.baseAction + '/' + id + '/delete';
       deleteForm.querySelector('[data-delete-name]').textContent = name;
       productModal?.close();
+      zoneModal?.close();
       deleteModal.showModal();
     };
-    document.querySelectorAll('[data-product-delete], [data-modal-delete]').forEach((button) => {
+    document.querySelectorAll('[data-product-delete], [data-zone-delete], [data-modal-delete], [data-delete]').forEach((button) => {
       button.addEventListener('click', () => confirmDelete(button.dataset.id, button.dataset.name));
     });
   }
@@ -254,5 +287,53 @@ document.addEventListener('DOMContentLoaded', () => {
         trigger.focus();
       }
     });
+  });
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  const form = document.querySelector('[data-address-form]');
+  const cepInput = form?.querySelector('[data-cep]');
+  if (!form || !cepInput) return;
+  const message = form.querySelector('[data-cep-message]');
+  const uf = form.querySelector('[data-cep-fill="uf"]');
+  const show = (text) => {
+    if (message) message.textContent = text;
+  };
+  uf?.addEventListener('input', () => {
+    uf.value = uf.value.toUpperCase();
+  });
+
+  let lastLookup = cepInput.value.replace(/\D/g, '') || null;
+  const lookup = async () => {
+    const cep = cepInput.value.replace(/\D/g, '');
+    if (cep.length !== 8 || cep === lastLookup) return;
+    lastLookup = cep;
+    cepInput.value = cep.slice(0, 5) + '-' + cep.slice(5);
+    show('Buscando o CEP…');
+    try {
+      const response = await fetch(form.dataset.cepUrl + '/' + cep, {
+        headers: { Accept: 'application/json' }, credentials: 'same-origin'
+      });
+      const type = response.headers.get('Content-Type') || '';
+      const body = type.includes('application/json') ? await response.json() : null;
+      if (!response.ok || !body) {
+        lastLookup = null;
+        show(body?.errors?.cep || body?.message || 'Não foi possível consultar o CEP agora; preencha o endereço à mão.');
+        return;
+      }
+      ['street', 'district', 'city', 'uf'].forEach((name) => {
+        const input = form.querySelector('[data-cep-fill="' + name + '"]');
+        if (input && body[name]) input.value = body[name];
+      });
+      show('Endereço preenchido pelo CEP; confira e informe o número.');
+      form.querySelector('input[name="number"]')?.focus();
+    } catch (e) {
+      lastLookup = null;
+      show('Não foi possível consultar o CEP agora; preencha o endereço à mão.');
+    }
+  };
+  cepInput.addEventListener('blur', lookup);
+  cepInput.addEventListener('input', () => {
+    if (cepInput.value.replace(/\D/g, '').length !== 8) lastLookup = null;
   });
 });

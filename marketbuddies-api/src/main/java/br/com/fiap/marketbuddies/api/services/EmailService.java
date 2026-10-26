@@ -96,6 +96,8 @@ public class EmailService {
         context.setVariable("customerName", order.getCustomer().getFullName());
         context.setVariable("orderId", order.getId());
         context.setVariable("items", items);
+        context.setVariable("subtotal", money(itemsTotal(order)));
+        context.setVariable("shipping", shippingText(order));
         context.setVariable("total", money(order.getTotalAmount()));
         context.setVariable("authorizationCode", order.getAuthorizationCode());
         context.setVariable("paidAt", paidAt);
@@ -109,6 +111,19 @@ public class EmailService {
             baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
         }
         return baseUrl + "/orders/" + order.getId();
+    }
+
+    private static BigDecimal itemsTotal(OrderEntity order) {
+        return order.getItems().stream().map(EmailService::subtotal).reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    /** "grátis", o valor, ou "—" em pedido anterior à entrega. */
+    private static String shippingText(OrderEntity order) {
+        BigDecimal fee = order.getShippingFee();
+        if (fee == null) {
+            return "—";
+        }
+        return fee.signum() == 0 ? "grátis" : money(fee);
     }
 
     private static BigDecimal subtotal(OrderItemEntity item) {
@@ -126,7 +141,9 @@ public class EmailService {
                     .append(" (").append(money(item.getUnitPrice())).append(" cada) = ").append(money(subtotal))
                     .append('\n');
         }
-        return text.append("\nTotal: ").append(money(order.getTotalAmount())).append('\n')
+        return text.append("\nSubtotal: ").append(money(itemsTotal(order))).append('\n')
+                .append("Frete: ").append(shippingText(order)).append('\n')
+                .append("Total: ").append(money(order.getTotalAmount())).append('\n')
                 .append("Código de autorização: ").append(order.getAuthorizationCode()).append('\n')
                 .append("Pago em: ").append(paidAt).append("\n\n")
                 .append("Ver meu pedido: ").append(orderUrl).append("\n\n")

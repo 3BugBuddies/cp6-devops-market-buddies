@@ -1,6 +1,7 @@
 package br.com.fiap.marketbuddies.api.repositories;
 
 import br.com.fiap.marketbuddies.api.entities.OrderEntity;
+import br.com.fiap.marketbuddies.api.enums.DeliveryStatus;
 import br.com.fiap.marketbuddies.api.enums.OrderStatus;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -32,6 +33,49 @@ public interface OrderRepository extends JpaRepository<OrderEntity, Long> {
                 @Param("code") String code,
                 @Param("reason") String reason,
                 @Param("now") LocalDateTime now);
+
+    /** Abre a entrega do pedido aprovado; devolve 0 se ela já começou. */
+    @Modifying(clearAutomatically = true)
+    @Query("""
+            update OrderEntity o
+               set o.deliveryStatus = br.com.fiap.marketbuddies.api.enums.DeliveryStatus.EM_SEPARACAO,
+                   o.deliveryUpdatedAt = :now
+             where o.id = :id
+               and o.status = br.com.fiap.marketbuddies.api.enums.OrderStatus.APPROVED
+               and o.deliveryStatus is null
+            """)
+    int startDelivery(@Param("id") Long id, @Param("now") LocalDateTime now);
+
+    /** Avança uma etapa os pedidos aprovados que estão em {@code from} desde {@code limit} ou antes. */
+    @Modifying(clearAutomatically = true)
+    @Query("""
+            update OrderEntity o
+               set o.deliveryStatus = :to,
+                   o.deliveryUpdatedAt = :now
+             where o.status = br.com.fiap.marketbuddies.api.enums.OrderStatus.APPROVED
+               and o.deliveryStatus = :from
+               and o.deliveryUpdatedAt <= :limit
+            """)
+    int advanceDelivery(@Param("from") DeliveryStatus from,
+                        @Param("to") DeliveryStatus to,
+                        @Param("limit") LocalDateTime limit,
+                        @Param("now") LocalDateTime now);
+
+    /** Cancela enquanto aguarda pagamento ou está em separação; devolve 0 se já saiu para entrega ou já terminou. */
+    @Modifying(clearAutomatically = true)
+    @Query("""
+            update OrderEntity o
+               set o.status = br.com.fiap.marketbuddies.api.enums.OrderStatus.CANCELED,
+                   o.deliveryStatus = null,
+                   o.deliveryUpdatedAt = null
+             where o.id = :id
+               and (o.status = br.com.fiap.marketbuddies.api.enums.OrderStatus.AWAITING_PAYMENT
+                    or (o.status = br.com.fiap.marketbuddies.api.enums.OrderStatus.APPROVED
+                        and o.deliveryStatus = br.com.fiap.marketbuddies.api.enums.DeliveryStatus.EM_SEPARACAO))
+            """)
+    int cancel(@Param("id") Long id);
+
+    boolean existsByCustomer_Id(Long customerId);
 
     List<OrderEntity> findByStatusAndCreatedAtBefore(OrderStatus status, LocalDateTime limit);
 
@@ -77,4 +121,8 @@ public interface OrderRepository extends JpaRepository<OrderEntity, Long> {
              order by o.createdAt desc, o.id desc
             """)
     List<RecentOrderRow> findRecent(Pageable pageable);
+
+    @Modifying(clearAutomatically = true)
+    @Query("update OrderEntity o set o.address = null where o.address.id = :addressId")
+    int detachAddress(@Param("addressId") Long addressId);
 }

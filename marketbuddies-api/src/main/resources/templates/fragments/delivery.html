@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<div th:fragment="timeline(o)" th:if="${o.delivery != null and o.delivery.started}"
+     th:with="current=${o.delivery.status.ordinal()}, delivered=${o.delivery.status.name() == 'ENTREGUE'}"
+     style="border-top: 1px solid var(--mb-line); padding-top: 12px; display: flex; flex-direction: column; gap: 12px">
+    <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap">
+        <span class="mb-label">Entrega</span>
+        <span class="mb-muted" th:text="${'Atualizado às ' + #temporals.format(o.delivery.updatedAt, 'HH:mm:ss')}">Atualizado às 20:53:12</span>
+    </div>
+    <ol class="mb-steps">
+        <li th:each="label, step : ${ {'Em separação', 'Saiu para entrega', 'Entregue'} }"
+            th:with="done=${delivered or step.index < current}, now=${!delivered and step.index == current}"
+            th:classappend="${done ? 'mb-steps\_\_item--done' : (now ? 'mb-steps\_\_item--now' : '')}"
+            class="mb-steps__item" th:attr="aria-current=${now} ? 'step' : null">
+            <span class="mb-steps__dot"><svg th:if="${done}" class="mb-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg></span>
+            <span th:text="${label}">Em separação</span>
+        </li>
+    </ol>
+</div>
+
+<div th:fragment="address(o)" th:if="${o.delivery != null and o.delivery.cep != null}"
+     style="display: flex; flex-direction: column; gap: 4px">
+    <span class="mb-label">Entregar em</span>
+    <span th:text="${o.delivery.street + ', ' + o.delivery.number + (o.delivery.complement != null ? ' · ' + o.delivery.complement : '')}">Avenida Paulista, 1000</span>
+    <span class="mb-muted"
+          th:text="${o.delivery.district + ' · ' + o.delivery.city + '/' + o.delivery.uf + ' · CEP ' + #strings.substring(o.delivery.cep, 0, 5) + '-' + #strings.substring(o.delivery.cep, 5)}">Bela Vista · São Paulo/SP · CEP 01310-100</span>
+    <span class="mb-muted" th:if="${o.delivery.deliveryDays != null}"
+          th:text="${'Prazo: ' + o.delivery.deliveryDays + (o.delivery.deliveryDays == 1 ? ' dia útil' : ' dias úteis')}">Prazo: 1 dia útil</span>
+</div>
+
+<th:block th:fragment="totals(o, label)">
+    <th:block th:if="${o.delivery != null and o.delivery.shippingFee != null}">
+        <div class="mb-row"><span>Subtotal</span>
+            <span style="font-variant-numeric: tabular-nums"
+                  th:text="${'R$ ' + #numbers.formatDecimal(o.totalAmount - o.delivery.shippingFee, 1, 'POINT', 2, 'COMMA')}">R$ 120,00</span></div>
+        <div class="mb-row"><span>Frete</span>
+            <span style="font-variant-numeric: tabular-nums"
+                  th:text="${o.delivery.free ? 'grátis' : 'R$ ' + #numbers.formatDecimal(o.delivery.shippingFee, 1, 'POINT', 2, 'COMMA')}">R$ 7,90</span></div>
+    </th:block>
+    <div class="mb-row mb-row--total"><span th:text="${label}">Total pago</span>
+        <span th:text="${'R$ ' + #numbers.formatDecimal(o.totalAmount, 1, 'POINT', 2, 'COMMA')}">R$ 127,90</span></div>
+</th:block>
+
+</body>
+</html>
