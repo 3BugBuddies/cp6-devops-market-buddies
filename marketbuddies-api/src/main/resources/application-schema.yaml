@@ -1,0 +1,11 @@
+# Profile "schema": além de criar/atualizar as tabelas, grava o DDL que o Hibernate gera em script.sql.
+# Usado uma vez contra o Azure SQL para produzir o script.sql entregue no repositório:
+#   SPRING_PROFILES_ACTIVE=schema DB_URL=... DB_USER=... DB_PASSWORD=... java -jar marketbuddies-api.jar
+spring:
+  jpa:
+    properties:
+      jakarta.persistence.schema-generation.scripts.action: create
+      jakarta.persistence.schema-generation.scripts.create-target: script.sql
+      jakarta.persistence.schema-generation.scripts.create-source: metadata
+      hibernate.hbm2ddl.delimiter: ";"
+      hibernate.format_sql: true
