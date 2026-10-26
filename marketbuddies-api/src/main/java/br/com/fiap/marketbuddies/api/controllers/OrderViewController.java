@@ -2,6 +2,7 @@ package br.com.fiap.marketbuddies.api.controllers;
 
 import br.com.fiap.marketbuddies.api.dtos.OrderDto;
 import br.com.fiap.marketbuddies.api.dtos.RetryItemDto;
+import br.com.fiap.marketbuddies.api.exceptions.BusinessException;
 import br.com.fiap.marketbuddies.api.security.AuthUser;
 import br.com.fiap.marketbuddies.api.services.CartService;
 import br.com.fiap.marketbuddies.api.services.OrderService;
@@ -48,6 +49,7 @@ public class OrderViewController {
         Map<String, Object> body = new HashMap<>();
         body.put("status", order.status());
         body.put("statusEmail", order.statusEmail());
+        body.put("deliveryStatus", order.delivery() == null ? null : order.delivery().status());
         return body;
     }
 
@@ -58,6 +60,19 @@ public class OrderViewController {
         if (!warnings.isEmpty()) {
             redirect.addFlashAttribute("notices", warnings);
         }
-        return "redirect:/checkout";
+        OrderDto.Delivery delivery = orderService.getOrder(id, user.getId(), false).delivery();
+        Long addressId = delivery == null ? null : delivery.addressId();
+        return addressId == null ? "redirect:/checkout" : "redirect:/checkout?addressId=" + addressId;
+    }
+
+    @PostMapping("/{id}/cancel")
+    public String cancel(@PathVariable Long id, @AuthenticationPrincipal AuthUser user, RedirectAttributes redirect) {
+        try {
+            orderService.cancel(id, user.getId());
+            redirect.addFlashAttribute("success", "Pedido cancelado. Os itens voltaram ao estoque.");
+        } catch (BusinessException ex) {
+            redirect.addFlashAttribute("error", ex.getMessage());
+        }
+        return "redirect:/orders/" + id;
     }
 }

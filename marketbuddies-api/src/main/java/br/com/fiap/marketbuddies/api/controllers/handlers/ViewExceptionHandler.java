@@ -1,6 +1,7 @@
 package br.com.fiap.marketbuddies.api.controllers.handlers;
 
 import br.com.fiap.marketbuddies.api.exceptions.BusinessException;
+import br.com.fiap.marketbuddies.api.exceptions.ConflictException;
 import br.com.fiap.marketbuddies.api.exceptions.NotFoundException;
 import br.com.fiap.marketbuddies.api.exceptions.OutOfStockException;
 import org.springframework.http.HttpStatus;
@@ -16,9 +17,9 @@ public class ViewExceptionHandler {
         return page("error/404", HttpStatus.NOT_FOUND, ex.getMessage());
     }
 
-    @ExceptionHandler({OutOfStockException.class, BusinessException.class})
+    @ExceptionHandler({OutOfStockException.class, ConflictException.class, BusinessException.class})
     public ModelAndView handleBusiness(RuntimeException ex) {
-        HttpStatus status = ex instanceof OutOfStockException ? HttpStatus.CONFLICT : HttpStatus.UNPROCESSABLE_CONTENT;
+        HttpStatus status = ex instanceof BusinessException ? HttpStatus.UNPROCESSABLE_CONTENT : HttpStatus.CONFLICT;
         return page("error", status, ex.getMessage());
     }
 

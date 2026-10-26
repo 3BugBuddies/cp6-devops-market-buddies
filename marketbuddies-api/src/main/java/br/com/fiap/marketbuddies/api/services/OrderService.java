@@ -1,14 +1,18 @@
 package br.com.fiap.marketbuddies.api.services;
 
+import br.com.fiap.marketbuddies.api.configs.DeliveryProperties;
 import br.com.fiap.marketbuddies.api.dtos.OrderDto;
 import br.com.fiap.marketbuddies.api.dtos.OrderItemRequestDto;
 import br.com.fiap.marketbuddies.api.dtos.PaymentRequestDto;
 import br.com.fiap.marketbuddies.api.dtos.RetryItemDto;
+import br.com.fiap.marketbuddies.api.entities.AddressEntity;
+import br.com.fiap.marketbuddies.api.entities.DeliveryAddress;
 import br.com.fiap.marketbuddies.api.entities.EmailEntity;
 import br.com.fiap.marketbuddies.api.entities.OrderEntity;
 import br.com.fiap.marketbuddies.api.entities.OrderItemEntity;
 import br.com.fiap.marketbuddies.api.entities.ProductEntity;
 import br.com.fiap.marketbuddies.api.entities.UserEntity;
+import br.com.fiap.marketbuddies.api.enums.DeliveryStatus;
 import br.com.fiap.marketbuddies.api.enums.OrderOrigin;
 import br.com.fiap.marketbuddies.api.enums.OrderStatus;
 import br.com.fiap.marketbuddies.api.enums.Role;
@@ -16,6 +20,7 @@ import br.com.fiap.marketbuddies.api.enums.StatusEmail;
 import br.com.fiap.marketbuddies.api.exceptions.BusinessException;
 import br.com.fiap.marketbuddies.api.exceptions.NotFoundException;
 import br.com.fiap.marketbuddies.api.exceptions.OutOfStockException;
+import br.com.fiap.marketbuddies.api.repositories.AddressRepository;
 import br.com.fiap.marketbuddies.api.repositories.EmailRepository;
 import br.com.fiap.marketbuddies.api.repositories.OrderRepository;
 import br.com.fiap.marketbuddies.api.repositories.ProductRepository;
@@ -27,6 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -42,18 +48,30 @@ public class OrderService {
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
     private final EmailRepository emailRepository;
+    private final AddressRepository addressRepository;
+    private final ShippingCalculator shippingCalculator;
+    private final Clock clock;
+    private final DeliveryProperties deliveryProperties;
 
     public record CreatedOrder(OrderDto order, PaymentRequestDto paymentRequest) {
     }
 
-    /** Cria o pedido e reserva o estoque numa transação só; sem estoque, {@link OutOfStockException} desfaz tudo. */
+    /**
+     * Cria o pedido e reserva o estoque numa transação só; sem estoque, {@link OutOfStockException} desfaz tudo.
+     * O endereço precisa ser do cliente e cair numa zona de entrega (conferido antes de reservar); o pedido guarda
+     * a cópia do endereço e o frete, e o total é itens + frete.
+     */
     @Transactional
-    public CreatedOrder createOrder(Long customerId, List<OrderItemRequestDto> requestedItems, OrderOrigin origin) {
+    public CreatedOrder createOrder(Long customerId, Long addressId, List<OrderItemRequestDto> requestedItems,
+                                    OrderOrigin origin) {
         UserEntity customer = userRepository.findById(customerId)
                 .orElseThrow(() -> new NotFoundException("Cliente não encontrado"));
         if (customer.getRole() != Role.CUSTOMER) {
             throw new BusinessException("Conta de administrador não faz compras");
         }
+        AddressEntity address = addressRepository.findByIdAndCustomerId(addressId, customerId)
+                .orElseThrow(() -> new NotFoundException("Endereço " + addressId + " não encontrado"));
+        shippingCalculator.findZone(address.getCep());
 
         Map<Long, Integer> quantities = new TreeMap<>();
         requestedItems.forEach(i -> quantities.merge(i.productId(), i.quantity(), Integer::sum));
@@ -71,7 +89,7 @@ public class OrderService {
         order.setCustomer(customer);
         order.setStatus(OrderStatus.AWAITING_PAYMENT);
         order.setOrigin(origin);
-        order.setCreatedAt(LocalDateTime.now());
+        order.setCreatedAt(LocalDateTime.now(clock));
 
         BigDecimal total = BigDecimal.ZERO;
         for (Map.Entry<Long, Integer> entry : quantities.entrySet()) {
@@ -96,44 +114,94 @@ public class OrderService {
 
             total = total.add(product.getFinalPrice().multiply(BigDecimal.valueOf(quantity)));
         }
-        order.setTotalAmount(total.setScale(2, RoundingMode.HALF_UP));
+        ShippingCalculator.Quote quote = shippingCalculator.quote(address.getCep(), total);
+        order.setAddress(address);
+        order.setDeliveryAddress(DeliveryAddress.from(address));
+        order.setShippingFee(quote.fee());
+        order.setDeliveryDays(quote.deliveryDays());
+        order.setTotalAmount(total.add(quote.fee()).setScale(2, RoundingMode.HALF_UP));
 
         OrderEntity saved = orderRepository.save(order);
-        log.info("Pedido {} criado ({}) · {} · R$ {}", saved.getId(), origin, customer.getEmail(), saved.getTotalAmount());
+        log.info("Pedido {} criado ({}) · {} · R$ {} (frete R$ {})", saved.getId(), origin, customer.getEmail(),
+                saved.getTotalAmount(), saved.getShippingFee());
         return new CreatedOrder(OrderDto.from(saved), PaymentRequestDto.from(saved));
     }
 
     /** Devolve {@code true} só na primeira resposta; repetida ou atrasada devolve {@code false}. */
     @Transactional
     public boolean markApproved(Long orderId, String authorizationCode) {
-        int changed = orderRepository.respond(orderId, OrderStatus.APPROVED, authorizationCode, null, LocalDateTime.now());
+        LocalDateTime now = LocalDateTime.now(clock);
+        int changed = orderRepository.respond(orderId, OrderStatus.APPROVED, authorizationCode, null, now);
         if (changed == 0) {
             logIgnored(orderId, "aprovação");
             return false;
         }
-        log.info("Pedido {} APROVADO {}", orderId, authorizationCode);
+        orderRepository.startDelivery(orderId, now);
+        log.info("Pedido {} APROVADO {} · entrega em separação", orderId, authorizationCode);
         return true;
     }
 
     /** Devolve o estoque só na primeira resposta; repetida ou atrasada devolve {@code false}. */
     @Transactional
     public boolean markRefused(Long orderId, String reason) {
-        int changed = orderRepository.respond(orderId, OrderStatus.REFUSED, null, reason, LocalDateTime.now());
+        int changed = orderRepository.respond(orderId, OrderStatus.REFUSED, null, reason, LocalDateTime.now(clock));
         if (changed == 0) {
             logIgnored(orderId, "recusa (" + reason + ")");
             return false;
         }
-        OrderEntity order = orderRepository.findDetailedById(orderId)
-                .orElseThrow(() -> new NotFoundException("Pedido " + orderId + " não encontrado"));
-        for (OrderItemEntity item : order.getItems()) {
-            if (item.getProduct() == null) {
-                log.info("Pedido {} · {} foi excluído do catálogo; estoque não devolvido", orderId, item.getProductName());
-                continue;
-            }
-            productRepository.release(item.getProduct().getId(), item.getQuantity());
-        }
+        restoreStock(orderId);
         log.info("Pedido {} RECUSADO · {} · estoque devolvido", orderId, reason);
         return true;
+    }
+
+    /** Só o dono cancela, e só enquanto aguarda pagamento ou está em separação; o estoque volta. */
+    @Transactional
+    public OrderDto cancel(Long orderId, Long customerId) {
+        orderRepository.findDetailedById(orderId)
+                .filter(o -> o.getCustomer().getId().equals(customerId))
+                .orElseThrow(() -> new NotFoundException("Pedido " + orderId + " não encontrado"));
+        if (orderRepository.cancel(orderId) == 0) {
+            OrderStatus current = orderRepository.findById(orderId).map(OrderEntity::getStatus).orElse(null);
+            throw new BusinessException(switch (current) {
+                case REFUSED -> "Pedido recusado não pode ser cancelado.";
+                case CANCELED -> "O pedido já foi cancelado.";
+                case null, default -> "O pedido já saiu para entrega e não pode ser cancelado.";
+            });
+        }
+        restoreStock(orderId);
+        log.info("Pedido {} CANCELADO pelo cliente · estoque devolvido", orderId);
+        return getOrder(orderId, customerId, false);
+    }
+
+    /** Admin exclui só pedido recusado ou cancelado; os e-mails do pedido saem antes, os itens vão em cascata. */
+    @Transactional
+    public void deleteOrder(Long orderId) {
+        OrderEntity order = orderRepository.findDetailedById(orderId)
+                .orElseThrow(() -> new NotFoundException("Pedido " + orderId + " não encontrado"));
+        if (order.getStatus() != OrderStatus.REFUSED && order.getStatus() != OrderStatus.CANCELED) {
+            throw new BusinessException("Só pedido recusado ou cancelado pode ser excluído.");
+        }
+        int emails = emailRepository.deleteByOrderId(orderId);
+        orderRepository.delete(order);
+        log.info("Pedido {} ({}) excluído com {} e-mail(s)", orderId, order.getStatus(), emails);
+    }
+
+    /**
+     * Avança uma etapa as entregas paradas há pelo menos {@code step}. A última etapa roda primeiro para que
+     * um pedido nunca avance duas etapas no mesmo tick.
+     */
+    @Transactional
+    public int advanceDeliveries() {
+        LocalDateTime now = LocalDateTime.now(clock);
+        LocalDateTime limit = now.minus(deliveryProperties.step());
+        int delivered = orderRepository.advanceDelivery(
+                DeliveryStatus.SAIU_PARA_ENTREGA, DeliveryStatus.ENTREGUE, limit, now);
+        int dispatched = orderRepository.advanceDelivery(
+                DeliveryStatus.EM_SEPARACAO, DeliveryStatus.SAIU_PARA_ENTREGA, limit, now);
+        if (delivered + dispatched > 0) {
+            log.info("Job de entrega: {} saíram para entrega, {} entregues", dispatched, delivered);
+        }
+        return delivered + dispatched;
     }
 
     @Transactional(readOnly = true)
@@ -178,6 +246,19 @@ public class OrderService {
                     .forEach(row -> emailStatus.put(row.getOrderId(), row.getStatusEmail()));
         }
         return orders.stream().map(o -> OrderDto.from(o, emailStatus.get(o.getId()))).toList();
+    }
+
+    /** Relê o pedido: os updates condicionais limpam o contexto de persistência. */
+    private void restoreStock(Long orderId) {
+        OrderEntity order = orderRepository.findDetailedById(orderId)
+                .orElseThrow(() -> new NotFoundException("Pedido " + orderId + " não encontrado"));
+        for (OrderItemEntity item : order.getItems()) {
+            if (item.getProduct() == null) {
+                log.info("Pedido {} · {} foi excluído do catálogo; estoque não devolvido", orderId, item.getProductName());
+                continue;
+            }
+            productRepository.release(item.getProduct().getId(), item.getQuantity());
+        }
     }
 
     private void logIgnored(Long orderId, String what) {

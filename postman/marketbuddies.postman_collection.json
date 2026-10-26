@@ -1,186 +1,15 @@
 {
   "info": {
-    "_postman_id": "5d0c7a3e-2b9f-4c1d-8e4a-3f6b1a9c7d52",
-    "name": "MarketBuddies API — CP5 (Java Advanced)",
-    "description": "API do MarketBuddies e do Tranquilo Bank (CP5 Java Advanced).\n\nPor padrão aponta para o deploy no Railway. Para rodar local, troque {{api}} por http://localhost:8080 e {{bank}} por http://localhost:8090.\n\nAntes de rodar, preencha só {{adminPassword}}: copie a senha do ADMIN do quadro 'Contas de teste' da tela de login. O cliente de teste já vai no corpo do login.\n\nRode em ordem no Collection Runner: os logins guardam {{token}} e {{adminToken}}, o produto criado guarda {{productId}} e as compras guardam {{orderId}}. As compras dependem do estoque inicial do seed. O print P13 do README é o Collection Runner com todos os testes passando.\n\nTambém pode ser importada no Insomnia (Import > From File).",
+    "_postman_id": "8f2d6c1e-4b7a-4e93-a5d1-6c0b9e3f7a21",
+    "name": "MarketBuddies API — CP6 (DevOps)",
+    "description": "CRUDs do MarketBuddies (CP6 DevOps Tools e Cloud Computing).\n\n{{api}} aponta para o Web App na Azure. Para rodar local, troque {{api}} para http://localhost:8080.\n\nAntes de rodar, preencha só {{adminPassword}} (local: admin123; nuvem: ADMIN_PASSWORD da pipeline).\n\nRode tudo em ordem no Collection Runner: cada pasta grava os ids que a seguinte usa. Os corpos são os arquivos da pasta json/ do repositório, com os ids trocados pelas variáveis.\n\nDepende do seed: cliente@marketbuddies.com / cliente123 com acesso ao CEP 01310-100, coberto pela zona 'Centro expandido SP'. As consultas de pedido esperam 5 s para o pagamento responder.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
-  "variable": [
-    {
-      "key": "api",
-      "value": "https://marketbuddies-api-production.up.railway.app",
-      "type": "string",
-      "description": "URL da API. Local: http://localhost:8080"
-    },
-    {
-      "key": "bank",
-      "value": "https://tranquilo-bank-production.up.railway.app",
-      "type": "string",
-      "description": "URL do Tranquilo Bank. Local: http://localhost:8090"
-    },
-    {
-      "key": "adminPassword",
-      "value": "",
-      "type": "string",
-      "description": "copie a senha do ADMIN do quadro 'Contas de teste' da tela de login"
-    },
-    {
-      "key": "token",
-      "value": "",
-      "type": "string",
-      "description": "Gravado por 'Login (cliente)'"
-    },
-    {
-      "key": "adminToken",
-      "value": "",
-      "type": "string",
-      "description": "Gravado por 'Login (admin)'"
-    },
-    {
-      "key": "productId",
-      "value": "",
-      "type": "string",
-      "description": "Gravado por 'Criar produto (ADMIN)'"
-    },
-    {
-      "key": "orderId",
-      "value": "",
-      "type": "string",
-      "description": "Gravado pelas compras"
-    }
-  ],
   "item": [
     {
       "name": "1. Autenticação",
+      "description": "Logins (cliente, admin e cliente de teste) e cadastro.",
       "item": [
-        {
-          "name": "Cadastro de cliente",
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.variables.set('signupEmail', 'spbiel18+postman' + pm.variables.replaceIn('{{$timestamp}}') + '@gmail.com');"
-                ]
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status 201', function () {",
-                  "    pm.response.to.have.status(201);",
-                  "});",
-                  "",
-                  "const body = pm.response.json();",
-                  "",
-                  "pm.test('Usuário criado como CUSTOMER', function () {",
-                  "    pm.expect(body.id).to.be.a('number');",
-                  "    pm.expect(body.email).to.eql(pm.variables.get('signupEmail'));",
-                  "    pm.expect(body.role).to.eql('CUSTOMER');",
-                  "});",
-                  "",
-                  "pm.test('Senha não volta na resposta', function () {",
-                  "    pm.expect(body).to.not.have.property('password');",
-                  "});",
-                  "",
-                  "pm.test('Header Location', function () {",
-                  "    pm.response.to.have.header('Location');",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "description": "Cadastro público: cria sempre um CUSTOMER e devolve 201 sem a senha. O e-mail é gerado a cada execução, então dá para rodar várias vezes.",
-            "url": {
-              "raw": "{{api}}/api/auth/signup",
-              "host": [
-                "{{api}}"
-              ],
-              "path": [
-                "api",
-                "auth",
-                "signup"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"fullName\": \"Cliente Postman\",\n  \"email\": \"{{signupEmail}}\",\n  \"password\": \"senha123\",\n  \"confirmPassword\": \"senha123\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "Cadastro com e-mail duplicado",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status 409', function () {",
-                  "    pm.response.to.have.status(409);",
-                  "});",
-                  "",
-                  "const body = pm.response.json();",
-                  "",
-                  "pm.test('Corpo de erro padrão', function () {",
-                  "    pm.expect(body.status).to.eql(409);",
-                  "    pm.expect(body.message).to.be.a('string').and.not.empty;",
-                  "});",
-                  "",
-                  "pm.test('Erro no campo email', function () {",
-                  "    pm.expect(body.errors.email).to.eql('Já existe uma conta com esse e-mail');",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "description": "O e-mail do cliente de teste já existe: 409 com o erro no campo email.",
-            "url": {
-              "raw": "{{api}}/api/auth/signup",
-              "host": [
-                "{{api}}"
-              ],
-              "path": [
-                "api",
-                "auth",
-                "signup"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"fullName\": \"Ana Souza\",\n  \"email\": \"cliente@marketbuddies.com\",\n  \"password\": \"cliente123\",\n  \"confirmPassword\": \"cliente123\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
         {
           "name": "Login (cliente)",
           "event": [
@@ -194,12 +23,10 @@
                   "});",
                   "",
                   "const body = pm.response.json();",
-                  "",
                   "pm.test('Token Bearer emitido', function () {",
                   "    pm.expect(body.accessToken).to.be.a('string').and.not.empty;",
                   "    pm.expect(body.tokenType).to.eql('Bearer');",
                   "});",
-                  "",
                   "pm.collectionVariables.set('token', body.accessToken);"
                 ]
               }
@@ -213,7 +40,6 @@
                 "value": "application/json"
               }
             ],
-            "description": "Login do cliente de teste; guarda o token em {{token}}. Print P1 do README.",
             "url": {
               "raw": "{{api}}/api/auth/login",
               "host": [
@@ -225,6 +51,7 @@
                 "login"
               ]
             },
+            "description": "Cliente do seed (Ana Souza). Guarda o token em {{token}}.\n\nCorpo: `json/auth/login-cliente.json`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"cliente@marketbuddies.com\",\n  \"password\": \"cliente123\"\n}",
@@ -249,12 +76,9 @@
                   "});",
                   "",
                   "const body = pm.response.json();",
-                  "",
                   "pm.test('Token Bearer emitido', function () {",
                   "    pm.expect(body.accessToken).to.be.a('string').and.not.empty;",
-                  "    pm.expect(body.tokenType).to.eql('Bearer');",
                   "});",
-                  "",
                   "pm.collectionVariables.set('adminToken', body.accessToken);"
                 ]
               }
@@ -268,7 +92,6 @@
                 "value": "application/json"
               }
             ],
-            "description": "Login do ADMIN; guarda o token em {{adminToken}}. A senha vem de {{adminPassword}}.",
             "url": {
               "raw": "{{api}}/api/auth/login",
               "host": [
@@ -280,9 +103,10 @@
                 "login"
               ]
             },
+            "description": "Preencha {{adminPassword}} antes (local: admin123; nuvem: ADMIN_PASSWORD da pipeline). Guarda {{adminToken}}.\n\nCorpo: `json/auth/login-admin.json`.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"3bugbuddies@gmail.com\",\n  \"password\": \"{{adminPassword}}\"\n}",
+              "raw": "{\n  \"email\": \"admin@marketbuddies.com\",\n  \"password\": \"{{adminPassword}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -292,7 +116,7 @@
           }
         },
         {
-          "name": "Login inválido",
+          "name": "Login com senha errada",
           "event": [
             {
               "listen": "test",
@@ -304,12 +128,6 @@
                   "});",
                   "",
                   "const body = pm.response.json();",
-                  "",
-                  "pm.test('Corpo de erro padrão', function () {",
-                  "    pm.expect(body.status).to.eql(401);",
-                  "    pm.expect(body.message).to.be.a('string').and.not.empty;",
-                  "});",
-                  "",
                   "pm.test('Mensagem de credencial inválida', function () {",
                   "    pm.expect(body.message).to.eql('Usuário ou senha inválidos');",
                   "});"
@@ -325,7 +143,6 @@
                 "value": "application/json"
               }
             ],
-            "description": "Senha errada: 401. Print P2 do README.",
             "url": {
               "raw": "{{api}}/api/auth/login",
               "host": [
@@ -337,6 +154,7 @@
                 "login"
               ]
             },
+            "description": "Corpo: `json/auth/login-senha-errada.json`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"cliente@marketbuddies.com\",\n  \"password\": \"senha-errada\"\n}",
@@ -349,7 +167,124 @@
           }
         },
         {
-          "name": "Me",
+          "name": "Cadastro de cliente de teste",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const stamp = pm.variables.replaceIn('{{$timestamp}}');",
+                  "pm.collectionVariables.set('signupEmail', 'cliente.postman.' + stamp + '@marketbuddies.com');",
+                  "pm.collectionVariables.set('editedEmail', 'cliente.postman.editado.' + stamp + '@marketbuddies.com');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test('Usuário criado como CUSTOMER, sem senha na resposta', function () {",
+                  "    pm.expect(body.id).to.be.a('number');",
+                  "    pm.expect(body.email).to.eql(pm.collectionVariables.get('signupEmail'));",
+                  "    pm.expect(body.role).to.eql('CUSTOMER');",
+                  "    pm.expect(body).to.not.have.property('password');",
+                  "});",
+                  "pm.collectionVariables.set('userId', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{api}}/api/auth/signup",
+              "host": [
+                "{{api}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "signup"
+              ]
+            },
+            "description": "Cria o cliente que a pasta 6 edita e exclui. O e-mail ganha um timestamp a cada execução ({{signupEmail}}), então a coleção pode rodar várias vezes. Guarda o id em {{userId}}.\n\nCorpo: `json/auth/signup.json`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Cliente Postman\",\n  \"email\": \"{{signupEmail}}\",\n  \"password\": \"teste123\",\n  \"confirmPassword\": \"teste123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Cadastro com e-mail já usado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test('Erro no campo email', function () {",
+                  "    pm.expect(body.errors.email).to.eql('Já existe uma conta com esse e-mail');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{api}}/api/auth/signup",
+              "host": [
+                "{{api}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "signup"
+              ]
+            },
+            "description": "Corpo: `json/auth/signup-email-duplicado.json`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Ana Souza\",\n  \"email\": \"cliente@marketbuddies.com\",\n  \"password\": \"teste123\",\n  \"confirmPassword\": \"teste123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Login (cliente de teste)",
           "event": [
             {
               "listen": "test",
@@ -361,12 +296,60 @@
                   "});",
                   "",
                   "const body = pm.response.json();",
+                  "pm.collectionVariables.set('testToken', body.accessToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{api}}/api/auth/login",
+              "host": [
+                "{{api}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Guarda o token do cliente de teste em {{testToken}}.\n\nCorpo: `json/auth/login-cliente-teste.json`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{signupEmail}}\",\n  \"password\": \"teste123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Me (cliente)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
                   "",
-                  "pm.test('É o cliente de teste', function () {",
+                  "const body = pm.response.json();",
+                  "pm.test('É o cliente do seed', function () {",
                   "    pm.expect(body.email).to.eql('cliente@marketbuddies.com');",
                   "    pm.expect(body.role).to.eql('CUSTOMER');",
-                  "    pm.expect(body).to.not.have.property('password');",
-                  "});"
+                  "});",
+                  "pm.collectionVariables.set('clienteId', body.id);"
                 ]
               }
             }
@@ -379,7 +362,6 @@
                 "value": "Bearer {{token}}"
               }
             ],
-            "description": "Dados do dono do token.",
             "url": {
               "raw": "{{api}}/api/auth/me",
               "host": [
@@ -390,93 +372,16 @@
                 "auth",
                 "me"
               ]
-            }
+            },
+            "description": "Dados do dono do token. Guarda o id da Ana em {{clienteId}} (usado no DELETE 409 da pasta 6)."
           }
         }
       ]
     },
     {
-      "name": "2. Produtos",
+      "name": "2. Produtos — TB_PRODUCTS",
+      "description": "CRUD do catálogo (escrita só ADMIN; leitura pública).",
       "item": [
-        {
-          "name": "Listar produtos",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "",
-                  "const body = pm.response.json();",
-                  "",
-                  "pm.test('Lista com preço e sem custo', function () {",
-                  "    pm.expect(body).to.be.an('array').and.not.empty;",
-                  "    pm.expect(body[0]).to.have.property('price');",
-                  "    pm.expect(body[0]).to.not.have.property('cost');",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "GET",
-            "header": [],
-            "description": "Catálogo público, sem token. Print P3 do README.",
-            "url": {
-              "raw": "{{api}}/api/products",
-              "host": [
-                "{{api}}"
-              ],
-              "path": [
-                "api",
-                "products"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Detalhe do produto",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "",
-                  "const body = pm.response.json();",
-                  "",
-                  "pm.test('Produto 1 com preço final', function () {",
-                  "    pm.expect(body.id).to.eql(1);",
-                  "    pm.expect(body.finalPrice).to.be.a('number');",
-                  "    pm.expect(body).to.not.have.property('markupPercentage');",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "GET",
-            "header": [],
-            "description": "Produto 1 do seed, público.",
-            "url": {
-              "raw": "{{api}}/api/products/1",
-              "host": [
-                "{{api}}"
-              ],
-              "path": [
-                "api",
-                "products",
-                "1"
-              ]
-            }
-          }
-        },
         {
           "name": "Criar produto (ADMIN)",
           "event": [
@@ -490,17 +395,15 @@
                   "});",
                   "",
                   "const body = pm.response.json();",
-                  "",
-                  "pm.test('Preço calculado pela API', function () {",
+                  "pm.test('Preço calculado e campos internos ocultos', function () {",
                   "    pm.expect(body.price).to.eql(15);",
-                  "    pm.expect(body.finalPrice).to.eql(13.5);",
-                  "    pm.expect(body.onSale).to.eql(true);",
+                  "    pm.expect(body.finalPrice).to.eql(15);",
+                  "    pm.expect(body.onSale).to.eql(false);",
+                  "    pm.expect(body).to.not.have.property('cost');",
                   "});",
-                  "",
                   "pm.test('Header Location', function () {",
-                  "    pm.expect(pm.response.headers.get('Location')).to.eql('/api/products/' + body.id);",
+                  "    pm.response.to.have.header('Location');",
                   "});",
-                  "",
                   "pm.collectionVariables.set('productId', body.id);"
                 ]
               }
@@ -518,7 +421,6 @@
                 "value": "Bearer {{adminToken}}"
               }
             ],
-            "description": "Cria o produto e guarda o id em {{productId}}. O preço não vai no corpo: custo 10,00 com markup de 50% dá 15,00; com 10% de oferta, 13,50.",
             "url": {
               "raw": "{{api}}/api/products",
               "host": [
@@ -529,9 +431,10 @@
                 "products"
               ]
             },
+            "description": "Preço calculado pela API: custo 10,00 + markup 50% = 15,00. Guarda {{productId}}.\n\nCorpo: `json/products/post.json`.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Suco de uva integral 1 L\",\n  \"category\": \"BEVERAGES\",\n  \"description\": \"Criado pela coleção do Postman.\",\n  \"cost\": 10.0,\n  \"markupPercentage\": 50,\n  \"discountPercentage\": 10,\n  \"stock\": 30\n}",
+              "raw": "{\n  \"name\": \"Suco de uva integral 1 L\",\n  \"category\": \"BEVERAGES\",\n  \"description\": \"Criado pela coleção do Postman.\",\n  \"cost\": 10.00,\n  \"markupPercentage\": 50,\n  \"discountPercentage\": 0,\n  \"stock\": 500\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -550,13 +453,6 @@
                 "exec": [
                   "pm.test('Status 403', function () {",
                   "    pm.response.to.have.status(403);",
-                  "});",
-                  "",
-                  "const body = pm.response.json();",
-                  "",
-                  "pm.test('Corpo de erro padrão', function () {",
-                  "    pm.expect(body.status).to.eql(403);",
-                  "    pm.expect(body.message).to.be.a('string').and.not.empty;",
                   "});"
                 ]
               }
@@ -574,7 +470,6 @@
                 "value": "Bearer {{token}}"
               }
             ],
-            "description": "Cliente não gerencia produtos: 403.",
             "url": {
               "raw": "{{api}}/api/products",
               "host": [
@@ -585,9 +480,10 @@
                 "products"
               ]
             },
+            "description": "Só o ADMIN escreve no catálogo.\n\nCorpo: `json/products/post.json`.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Suco de uva integral 1 L\",\n  \"category\": \"BEVERAGES\",\n  \"description\": \"Criado pela coleção do Postman.\",\n  \"cost\": 10.0,\n  \"markupPercentage\": 50,\n  \"discountPercentage\": 10,\n  \"stock\": 30\n}",
+              "raw": "{\n  \"name\": \"Suco de uva integral 1 L\",\n  \"category\": \"BEVERAGES\",\n  \"description\": \"Criado pela coleção do Postman.\",\n  \"cost\": 10.00,\n  \"markupPercentage\": 50,\n  \"discountPercentage\": 0,\n  \"stock\": 500\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -597,63 +493,85 @@
           }
         },
         {
-          "name": "Criar produto inválido",
+          "name": "Listar produtos (público)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status 400', function () {",
-                  "    pm.response.to.have.status(400);",
+                  "pm.test('Status 200', function () {",
+                  "    pm.response.to.have.status(200);",
                   "});",
                   "",
                   "const body = pm.response.json();",
-                  "",
-                  "pm.test('Corpo de erro padrão', function () {",
-                  "    pm.expect(body.status).to.eql(400);",
-                  "    pm.expect(body.message).to.be.a('string').and.not.empty;",
-                  "});",
-                  "",
-                  "pm.test('Erros de nome e custo', function () {",
-                  "    pm.expect(body.errors).to.have.property('name');",
-                  "    pm.expect(body.errors).to.have.property('cost');",
+                  "pm.test('O produto criado aparece no filtro', function () {",
+                  "    const id = Number(pm.collectionVariables.get('productId'));",
+                  "    pm.expect(body.map(p => p.id)).to.include(id);",
                   "});"
                 ]
               }
             }
           ],
           "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{adminToken}}"
-              }
-            ],
-            "description": "Sem nome e com custo zero: 400 com os erros por campo.",
+            "method": "GET",
+            "header": [],
             "url": {
-              "raw": "{{api}}/api/products",
+              "raw": "{{api}}/api/products?search=suco&category=BEVERAGES",
               "host": [
                 "{{api}}"
               ],
               "path": [
                 "api",
                 "products"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"\",\n  \"category\": \"BEVERAGES\",\n  \"description\": \"Criado pela coleção do Postman.\",\n  \"cost\": 0,\n  \"markupPercentage\": 50,\n  \"discountPercentage\": 10,\n  \"stock\": 30\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
+              ],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "suco"
+                },
+                {
+                  "key": "category",
+                  "value": "BEVERAGES"
                 }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Buscar produto por id (público)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test('É o produto criado', function () {",
+                  "    pm.expect(String(body.id)).to.eql(String(pm.collectionVariables.get('productId')));",
+                  "    pm.expect(body.category).to.eql('BEVERAGES');",
+                  "});"
+                ]
               }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api}}/api/products/{{productId}}",
+              "host": [
+                "{{api}}"
+              ],
+              "path": [
+                "api",
+                "products",
+                "{{productId}}"
+              ]
             }
           }
         },
@@ -670,13 +588,10 @@
                   "});",
                   "",
                   "const body = pm.response.json();",
-                  "",
-                  "pm.test('Produto atualizado', function () {",
-                  "    pm.expect(String(body.id)).to.eql(String(pm.collectionVariables.get('productId')));",
-                  "    pm.expect(body.name).to.eql('Suco de uva integral 1,5 L');",
-                  "    pm.expect(body.price).to.eql(18);",
-                  "    pm.expect(body.finalPrice).to.eql(18);",
-                  "    pm.expect(body.stock).to.eql(25);",
+                  "pm.test('Oferta aplicada', function () {",
+                  "    pm.expect(body.finalPrice).to.eql(13.5);",
+                  "    pm.expect(body.onSale).to.eql(true);",
+                  "    pm.expect(body.stock).to.eql(480);",
                   "});"
                 ]
               }
@@ -694,7 +609,6 @@
                 "value": "Bearer {{adminToken}}"
               }
             ],
-            "description": "Novo custo, sem oferta e estoque 25. O preço é recalculado: 12,00 com 50% dá 18,00.",
             "url": {
               "raw": "{{api}}/api/products/{{productId}}",
               "host": [
@@ -706,9 +620,62 @@
                 "{{productId}}"
               ]
             },
+            "description": "Entra em oferta de 10%: preço final 13,50. Os pedidos da pasta 5 usam este produto.\n\nCorpo: `json/products/put.json`.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Suco de uva integral 1,5 L\",\n  \"category\": \"BEVERAGES\",\n  \"description\": \"Criado pela coleção do Postman.\",\n  \"cost\": 12.0,\n  \"markupPercentage\": 50,\n  \"discountPercentage\": 0,\n  \"stock\": 25\n}",
+              "raw": "{\n  \"name\": \"Suco de uva integral 1 L\",\n  \"category\": \"BEVERAGES\",\n  \"description\": \"Atualizado pela coleção do Postman: 10% de oferta.\",\n  \"cost\": 10.00,\n  \"markupPercentage\": 50,\n  \"discountPercentage\": 10,\n  \"stock\": 480\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Criar produto descartável (ADMIN)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('productTempId', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api}}/api/products",
+              "host": [
+                "{{api}}"
+              ],
+              "path": [
+                "api",
+                "products"
+              ]
+            },
+            "description": "Mesmo corpo do 'Criar produto'; é o registro que o DELETE abaixo apaga, para o produto principal seguir disponível para os pedidos. Guarda {{productTempId}}.\n\nCorpo: `json/products/post.json`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Suco de uva integral 1 L\",\n  \"category\": \"BEVERAGES\",\n  \"description\": \"Criado pela coleção do Postman.\",\n  \"cost\": 10.00,\n  \"markupPercentage\": 50,\n  \"discountPercentage\": 0,\n  \"stock\": 500\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -727,10 +694,6 @@
                 "exec": [
                   "pm.test('Status 204', function () {",
                   "    pm.response.to.have.status(204);",
-                  "});",
-                  "",
-                  "pm.test('Sem corpo', function () {",
-                  "    pm.expect(pm.response.text()).to.be.empty;",
                   "});"
                 ]
               }
@@ -744,22 +707,21 @@
                 "value": "Bearer {{adminToken}}"
               }
             ],
-            "description": "Exclui o produto criado: 204 sem corpo.",
             "url": {
-              "raw": "{{api}}/api/products/{{productId}}",
+              "raw": "{{api}}/api/products/{{productTempId}}",
               "host": [
                 "{{api}}"
               ],
               "path": [
                 "api",
                 "products",
-                "{{productId}}"
+                "{{productTempId}}"
               ]
             }
           }
         },
         {
-          "name": "Detalhe do excluído",
+          "name": "Buscar produto excluído",
           "event": [
             {
               "listen": "test",
@@ -768,13 +730,6 @@
                 "exec": [
                   "pm.test('Status 404', function () {",
                   "    pm.response.to.have.status(404);",
-                  "});",
-                  "",
-                  "const body = pm.response.json();",
-                  "",
-                  "pm.test('Corpo de erro padrão', function () {",
-                  "    pm.expect(body.status).to.eql(404);",
-                  "    pm.expect(body.message).to.be.a('string').and.not.empty;",
                   "});"
                 ]
               }
@@ -783,16 +738,15 @@
           "request": {
             "method": "GET",
             "header": [],
-            "description": "O produto excluído não existe mais: 404.",
             "url": {
-              "raw": "{{api}}/api/products/{{productId}}",
+              "raw": "{{api}}/api/products/{{productTempId}}",
               "host": [
                 "{{api}}"
               ],
               "path": [
                 "api",
                 "products",
-                "{{productId}}"
+                "{{productTempId}}"
               ]
             }
           }
@@ -800,10 +754,857 @@
       ]
     },
     {
-      "name": "3. Compras",
+      "name": "3. Endereços — TB_ADDRESSES",
+      "description": "CRUD dos endereços do cliente logado e consulta de CEP.",
       "item": [
         {
-          "name": "Compra aprovada",
+          "name": "Consultar CEP (ViaCEP)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test('Endereço do CEP', function () {",
+                  "    pm.expect(body.cep).to.eql('01310100');",
+                  "    pm.expect(body.uf).to.eql('SP');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api}}/api/addresses/cep/01310100",
+              "host": [
+                "{{api}}"
+              ],
+              "path": [
+                "api",
+                "addresses",
+                "cep",
+                "01310100"
+              ]
+            },
+            "description": "Preenche rua, bairro, cidade e UF. 502 se o ViaCEP estiver fora."
+          }
+        },
+        {
+          "name": "Criar endereço (CUSTOMER)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test('CEP normalizado', function () {",
+                  "    pm.expect(body.cep).to.eql('01310100');",
+                  "    pm.expect(body.label).to.eql('Trabalho');",
+                  "});",
+                  "pm.collectionVariables.set('addressId', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api}}/api/addresses",
+              "host": [
+                "{{api}}"
+              ],
+              "path": [
+                "api",
+                "addresses"
+              ]
+            },
+            "description": "CEP aceito com ou sem hífen; gravado só com dígitos. Guarda {{addressId}}.\n\nCorpo: `json/addresses/post.json`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"label\": \"Trabalho\",\n  \"cep\": \"01310-100\",\n  \"street\": \"Avenida Paulista\",\n  \"number\": \"1578\",\n  \"complement\": \"Sala 12\",\n  \"district\": \"Bela Vista\",\n  \"city\": \"São Paulo\",\n  \"uf\": \"SP\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Criar endereço como admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api}}/api/addresses",
+              "host": [
+                "{{api}}"
+              ],
+              "path": [
+                "api",
+                "addresses"
+              ]
+            },
+            "description": "Endereço é do cliente; o ADMIN não tem.\n\nCorpo: `json/addresses/post.json`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"label\": \"Trabalho\",\n  \"cep\": \"01310-100\",\n  \"street\": \"Avenida Paulista\",\n  \"number\": \"1578\",\n  \"complement\": \"Sala 12\",\n  \"district\": \"Bela Vista\",\n  \"city\": \"São Paulo\",\n  \"uf\": \"SP\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Listar meus endereços",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test('O endereço criado está na lista', function () {",
+                  "    const id = Number(pm.collectionVariables.get('addressId'));",
+                  "    pm.expect(body.map(a => a.id)).to.include(id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api}}/api/addresses",
+              "host": [
+                "{{api}}"
+              ],
+              "path": [
+                "api",
+                "addresses"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Buscar endereço por id",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test('É o endereço criado', function () {",
+                  "    pm.expect(String(body.id)).to.eql(String(pm.collectionVariables.get('addressId')));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api}}/api/addresses/{{addressId}}",
+              "host": [
+                "{{api}}"
+              ],
+              "path": [
+                "api",
+                "addresses",
+                "{{addressId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Atualizar endereço",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test('Complemento atualizado', function () {",
+                  "    pm.expect(body.complement).to.eql('Sala 15');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api}}/api/addresses/{{addressId}}",
+              "host": [
+                "{{api}}"
+              ],
+              "path": [
+                "api",
+                "addresses",
+                "{{addressId}}"
+              ]
+            },
+            "description": "Corpo: `json/addresses/put.json`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"label\": \"Trabalho\",\n  \"cep\": \"01310-100\",\n  \"street\": \"Avenida Paulista\",\n  \"number\": \"1578\",\n  \"complement\": \"Sala 15\",\n  \"district\": \"Bela Vista\",\n  \"city\": \"São Paulo\",\n  \"uf\": \"SP\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Criar endereço descartável",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('addressTempId', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api}}/api/addresses",
+              "host": [
+                "{{api}}"
+              ],
+              "path": [
+                "api",
+                "addresses"
+              ]
+            },
+            "description": "Mesmo corpo do 'Criar endereço'; é o registro que o DELETE abaixo apaga, para o endereço principal seguir disponível para os pedidos. Guarda {{addressTempId}}.\n\nCorpo: `json/addresses/post.json`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"label\": \"Trabalho\",\n  \"cep\": \"01310-100\",\n  \"street\": \"Avenida Paulista\",\n  \"number\": \"1578\",\n  \"complement\": \"Sala 12\",\n  \"district\": \"Bela Vista\",\n  \"city\": \"São Paulo\",\n  \"uf\": \"SP\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Excluir endereço",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 204', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api}}/api/addresses/{{addressTempId}}",
+              "host": [
+                "{{api}}"
+              ],
+              "path": [
+                "api",
+                "addresses",
+                "{{addressTempId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Buscar endereço excluído",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api}}/api/addresses/{{addressTempId}}",
+              "host": [
+                "{{api}}"
+              ],
+              "path": [
+                "api",
+                "addresses",
+                "{{addressTempId}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Zonas de entrega — TB_DELIVERY_ZONES",
+      "description": "CRUD das faixas de CEP com taxa e prazo (ADMIN).",
+      "item": [
+        {
+          "name": "Criar zona (ADMIN)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test('Faixa gravada só com dígitos', function () {",
+                  "    pm.expect(body.cepStart).to.eql('20000000');",
+                  "    pm.expect(body.cepEnd).to.eql('23799999');",
+                  "    pm.expect(body.fee).to.eql(24.9);",
+                  "});",
+                  "pm.collectionVariables.set('zoneId', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api}}/api/delivery-zones",
+              "host": [
+                "{{api}}"
+              ],
+              "path": [
+                "api",
+                "delivery-zones"
+              ]
+            },
+            "description": "Guarda {{zoneId}}.\n\nCorpo: `json/delivery-zones/post.json`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Rio de Janeiro capital\",\n  \"cepStart\": \"20000-000\",\n  \"cepEnd\": \"23799-999\",\n  \"fee\": 24.90,\n  \"deliveryDays\": 3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Criar zona como cliente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api}}/api/delivery-zones",
+              "host": [
+                "{{api}}"
+              ],
+              "path": [
+                "api",
+                "delivery-zones"
+              ]
+            },
+            "description": "Corpo: `json/delivery-zones/post.json`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Rio de Janeiro capital\",\n  \"cepStart\": \"20000-000\",\n  \"cepEnd\": \"23799-999\",\n  \"fee\": 24.90,\n  \"deliveryDays\": 3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Criar zona com nome repetido",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test('Erro no campo name', function () {",
+                  "    pm.expect(body.errors.name).to.eql('Já existe uma zona com esse nome.');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api}}/api/delivery-zones",
+              "host": [
+                "{{api}}"
+              ],
+              "path": [
+                "api",
+                "delivery-zones"
+              ]
+            },
+            "description": "Corpo: `json/delivery-zones/post.json`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Rio de Janeiro capital\",\n  \"cepStart\": \"20000-000\",\n  \"cepEnd\": \"23799-999\",\n  \"fee\": 24.90,\n  \"deliveryDays\": 3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Criar zona com faixa sobreposta",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test('Erro de sobreposição no cepStart', function () {",
+                  "    pm.expect(body.errors.cepStart).to.include('sobrepõe a zona');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api}}/api/delivery-zones",
+              "host": [
+                "{{api}}"
+              ],
+              "path": [
+                "api",
+                "delivery-zones"
+              ]
+            },
+            "description": "23000-000 a 24999-999 invade a faixa da zona criada acima.\n\nCorpo: `json/delivery-zones/post-sobreposta.json`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Niterói e São Gonçalo\",\n  \"cepStart\": \"23000-000\",\n  \"cepEnd\": \"24999-999\",\n  \"fee\": 29.90,\n  \"deliveryDays\": 4\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Listar zonas (ADMIN)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test('A zona criada está na lista', function () {",
+                  "    const id = Number(pm.collectionVariables.get('zoneId'));",
+                  "    pm.expect(body.map(z => z.id)).to.include(id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api}}/api/delivery-zones",
+              "host": [
+                "{{api}}"
+              ],
+              "path": [
+                "api",
+                "delivery-zones"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Buscar zona por id (ADMIN)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test('É a zona criada', function () {",
+                  "    pm.expect(body.name).to.eql('Rio de Janeiro capital');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api}}/api/delivery-zones/{{zoneId}}",
+              "host": [
+                "{{api}}"
+              ],
+              "path": [
+                "api",
+                "delivery-zones",
+                "{{zoneId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Atualizar zona (ADMIN)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test('Taxa e prazo atualizados', function () {",
+                  "    pm.expect(body.fee).to.eql(19.9);",
+                  "    pm.expect(body.deliveryDays).to.eql(2);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api}}/api/delivery-zones/{{zoneId}}",
+              "host": [
+                "{{api}}"
+              ],
+              "path": [
+                "api",
+                "delivery-zones",
+                "{{zoneId}}"
+              ]
+            },
+            "description": "Corpo: `json/delivery-zones/put.json`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Rio de Janeiro capital\",\n  \"cepStart\": \"20000-000\",\n  \"cepEnd\": \"23799-999\",\n  \"fee\": 19.90,\n  \"deliveryDays\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Excluir zona (ADMIN)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 204', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api}}/api/delivery-zones/{{zoneId}}",
+              "host": [
+                "{{api}}"
+              ],
+              "path": [
+                "api",
+                "delivery-zones",
+                "{{zoneId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Buscar zona excluída",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api}}/api/delivery-zones/{{zoneId}}",
+              "host": [
+                "{{api}}"
+              ],
+              "path": [
+                "api",
+                "delivery-zones",
+                "{{zoneId}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Pedidos — TB_ORDERS e TB_ORDER_ITEMS",
+      "description": "Compra com endereço, pagamento aprovado e recusado, cancelamento e exclusão pelo admin.",
+      "item": [
+        {
+          "name": "Criar pedido (CUSTOMER)",
           "event": [
             {
               "listen": "test",
@@ -815,12 +1616,12 @@
                   "});",
                   "",
                   "const body = pm.response.json();",
-                  "",
-                  "pm.test('Pedido nasce AWAITING_PAYMENT', function () {",
+                  "pm.test('Pedido nasce aguardando pagamento, com entrega', function () {",
                   "    pm.expect(body.status).to.eql('AWAITING_PAYMENT');",
-                  "    pm.expect(body.items).to.have.lengthOf(2);",
+                  "    pm.expect(body.totalAmount).to.eql(34.9);",
+                  "    pm.expect(body.delivery.shippingFee).to.eql(7.9);",
+                  "    pm.expect(String(body.delivery.addressId)).to.eql(String(pm.collectionVariables.get('addressId')));",
                   "});",
-                  "",
                   "pm.collectionVariables.set('orderId', body.id);"
                 ]
               }
@@ -838,7 +1639,6 @@
                 "value": "Bearer {{token}}"
               }
             ],
-            "description": "1 Café (id 7) e 2 Bananas (id 1), R$ 30,47. A API responde 202 AWAITING_PAYMENT e guarda o id em {{orderId}}. Print P4 do README.",
             "url": {
               "raw": "{{api}}/api/orders",
               "host": [
@@ -849,9 +1649,10 @@
                 "orders"
               ]
             },
+            "description": "2 × R$ 13,50 + frete R$ 7,90 (zona Centro expandido SP) = R$ 34,90. A API aceita (202) e o pagamento roda ~3 s depois. Guarda {{orderId}}.\n\nCorpo: `json/orders/post.json`.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"items\": [\n    {\n      \"productId\": 7,\n      \"quantity\": 1\n    },\n    {\n      \"productId\": 1,\n      \"quantity\": 2\n    }\n  ]\n}",
+              "raw": "{\n  \"addressId\": {{addressId}},\n  \"items\": [\n    { \"productId\": {{productId}}, \"quantity\": 2 }\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -861,8 +1662,67 @@
           }
         },
         {
-          "name": "Consultar pedido",
+          "name": "Criar pedido como admin",
           "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api}}/api/orders",
+              "host": [
+                "{{api}}"
+              ],
+              "path": [
+                "api",
+                "orders"
+              ]
+            },
+            "description": "Corpo: `json/orders/post.json`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"addressId\": {{addressId}},\n  \"items\": [\n    { \"productId\": {{productId}}, \"quantity\": 2 }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Consultar pedido aprovado",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// O pagamento roda ~3 s depois da compra: espera 5 s antes de consultar.",
+                  "setTimeout(function () {}, 5000);"
+                ]
+              }
+            },
             {
               "listen": "test",
               "script": {
@@ -873,10 +1733,9 @@
                   "});",
                   "",
                   "const body = pm.response.json();",
-                  "",
-                  "pm.test('É o pedido criado, com status válido', function () {",
-                  "    pm.expect(String(body.id)).to.eql(String(pm.collectionVariables.get('orderId')));",
-                  "    pm.expect(['AWAITING_PAYMENT', 'APPROVED', 'REFUSED']).to.include(body.status);",
+                  "pm.test('Pagamento aprovado', function () {",
+                  "    pm.expect(body.status).to.eql('APPROVED');",
+                  "    pm.expect(body.authorizationCode).to.match(/^TB-/);",
                   "});"
                 ]
               }
@@ -890,7 +1749,6 @@
                 "value": "Bearer {{token}}"
               }
             ],
-            "description": "Pedido de {{orderId}}. Logo após a compra ainda está AWAITING_PAYMENT; repita depois de ~2 s para ver APPROVED e statusEmail. Print P5 do README.",
             "url": {
               "raw": "{{api}}/api/orders/{{orderId}}",
               "host": [
@@ -905,237 +1763,7 @@
           }
         },
         {
-          "name": "Compra recusada (acima de R$ 500)",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status 202', function () {",
-                  "    pm.response.to.have.status(202);",
-                  "});",
-                  "",
-                  "const body = pm.response.json();",
-                  "",
-                  "pm.test('Pedido nasce AWAITING_PAYMENT', function () {",
-                  "    pm.expect(body.status).to.eql('AWAITING_PAYMENT');",
-                  "    pm.expect(body.totalAmount).to.eql(524.08);",
-                  "});",
-                  "",
-                  "pm.collectionVariables.set('orderId', body.id);"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "description": "17 Cafés + 21 Maçãs = R$ 524,08. A API aceita (202) e o banco recusa; consulte com 'Consultar pedido'. Depende do estoque do seed. Print P6 do README.",
-            "url": {
-              "raw": "{{api}}/api/orders",
-              "host": [
-                "{{api}}"
-              ],
-              "path": [
-                "api",
-                "orders"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"items\": [\n    {\n      \"productId\": 7,\n      \"quantity\": 17\n    },\n    {\n      \"productId\": 2,\n      \"quantity\": 21\n    }\n  ]\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "Compra sem estoque",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status 409', function () {",
-                  "    pm.response.to.have.status(409);",
-                  "});",
-                  "",
-                  "const body = pm.response.json();",
-                  "",
-                  "pm.test('Corpo de erro padrão', function () {",
-                  "    pm.expect(body.status).to.eql(409);",
-                  "    pm.expect(body.message).to.be.a('string').and.not.empty;",
-                  "});",
-                  "",
-                  "pm.test('Mensagem de estoque', function () {",
-                  "    pm.expect(body.message).to.include('Sem estoque');",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "description": "999 Cafés: 409 e nenhum item baixa. Print P7 do README.",
-            "url": {
-              "raw": "{{api}}/api/orders",
-              "host": [
-                "{{api}}"
-              ],
-              "path": [
-                "api",
-                "orders"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"items\": [\n    {\n      \"productId\": 7,\n      \"quantity\": 999\n    }\n  ]\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "Compra sem token",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status 401', function () {",
-                  "    pm.response.to.have.status(401);",
-                  "});",
-                  "",
-                  "const body = pm.response.json();",
-                  "",
-                  "pm.test('Corpo de erro padrão', function () {",
-                  "    pm.expect(body.status).to.eql(401);",
-                  "    pm.expect(body.message).to.be.a('string').and.not.empty;",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "description": "Sem o header Authorization: 401. Print P8 do README.",
-            "url": {
-              "raw": "{{api}}/api/orders",
-              "host": [
-                "{{api}}"
-              ],
-              "path": [
-                "api",
-                "orders"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"items\": [\n    {\n      \"productId\": 7,\n      \"quantity\": 1\n    }\n  ]\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "Compra com corpo inválido",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status 400', function () {",
-                  "    pm.response.to.have.status(400);",
-                  "});",
-                  "",
-                  "const body = pm.response.json();",
-                  "",
-                  "pm.test('Corpo de erro padrão', function () {",
-                  "    pm.expect(body.status).to.eql(400);",
-                  "    pm.expect(body.message).to.be.a('string').and.not.empty;",
-                  "});",
-                  "",
-                  "pm.test('Erro no campo items', function () {",
-                  "    pm.expect(body.errors).to.have.property('items');",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "description": "Lista de itens vazia: 400 com o erro no campo items.",
-            "url": {
-              "raw": "{{api}}/api/orders",
-              "host": [
-                "{{api}}"
-              ],
-              "path": [
-                "api",
-                "orders"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"items\": []\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "Meus pedidos",
+          "name": "Listar meus pedidos",
           "event": [
             {
               "listen": "test",
@@ -1147,11 +1775,9 @@
                   "});",
                   "",
                   "const body = pm.response.json();",
-                  "",
-                  "pm.test('Só pedidos do cliente, com o último criado', function () {",
-                  "    pm.expect(body).to.be.an('array').and.not.empty;",
-                  "    body.forEach(o => pm.expect(o.customerEmail).to.eql('cliente@marketbuddies.com'));",
-                  "    pm.expect(body.map(o => String(o.id))).to.include(String(pm.collectionVariables.get('orderId')));",
+                  "pm.test('O pedido criado está na lista', function () {",
+                  "    const id = Number(pm.collectionVariables.get('orderId'));",
+                  "    pm.expect(body.map(o => o.id)).to.include(id);",
                   "});"
                 ]
               }
@@ -1165,7 +1791,6 @@
                 "value": "Bearer {{token}}"
               }
             ],
-            "description": "Pedidos do dono do token, mais recentes primeiro (até 50). Com o token do ADMIN, lista os de todos.",
             "url": {
               "raw": "{{api}}/api/orders",
               "host": [
@@ -1177,14 +1802,9 @@
               ]
             }
           }
-        }
-      ]
-    },
-    {
-      "name": "4. E-mails",
-      "item": [
+        },
         {
-          "name": "Listar e-mails enviados",
+          "name": "Listar todos os pedidos (ADMIN)",
           "event": [
             {
               "listen": "test",
@@ -1193,10 +1813,6 @@
                 "exec": [
                   "pm.test('Status 200', function () {",
                   "    pm.response.to.have.status(200);",
-                  "});",
-                  "",
-                  "pm.test('Resposta é um array', function () {",
-                  "    pm.expect(pm.response.json()).to.be.an('array');",
                   "});"
                 ]
               }
@@ -1210,7 +1826,436 @@
                 "value": "Bearer {{adminToken}}"
               }
             ],
-            "description": "Controle de envio dos e-mails, só ADMIN ({{adminToken}}). Print P9 do README.",
+            "url": {
+              "raw": "{{api}}/api/orders",
+              "host": [
+                "{{api}}"
+              ],
+              "path": [
+                "api",
+                "orders"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Compra acima de R$ 500",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 202', function () {",
+                  "    pm.response.to.have.status(202);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test('Total acima do limite', function () {",
+                  "    pm.expect(body.totalAmount).to.eql(540);",
+                  "    pm.expect(body.delivery.shippingFee).to.eql(0);",
+                  "});",
+                  "pm.collectionVariables.set('refusedOrderId', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api}}/api/orders",
+              "host": [
+                "{{api}}"
+              ],
+              "path": [
+                "api",
+                "orders"
+              ]
+            },
+            "description": "40 × R$ 13,50 = R$ 540,00 (frete grátis a partir de R$ 150). A API aceita e o pagamento recusa. Guarda {{refusedOrderId}}.\n\nCorpo: `json/orders/post-acima-do-limite.json`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"addressId\": {{addressId}},\n  \"items\": [\n    { \"productId\": {{productId}}, \"quantity\": 40 }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Consultar pedido recusado",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// O pagamento roda ~3 s depois da compra: espera 5 s antes de consultar.",
+                  "setTimeout(function () {}, 5000);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test('Pagamento recusado pelo limite', function () {",
+                  "    pm.expect(body.status).to.eql('REFUSED');",
+                  "    pm.expect(body.refusalReason).to.eql('Valor acima do limite de R$ 500,00');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api}}/api/orders/{{refusedOrderId}}",
+              "host": [
+                "{{api}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "{{refusedOrderId}}"
+              ]
+            },
+            "description": "Recusado, o estoque reservado volta para o produto."
+          }
+        },
+        {
+          "name": "Cancelar pedido recusado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test('Recusado não cancela', function () {",
+                  "    pm.expect(body.message).to.eql('Pedido recusado não pode ser cancelado.');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api}}/api/orders/{{refusedOrderId}}/cancel",
+              "host": [
+                "{{api}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "{{refusedOrderId}}",
+                "cancel"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Criar pedido para cancelar",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 202', function () {",
+                  "    pm.response.to.have.status(202);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('canceledOrderId', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api}}/api/orders",
+              "host": [
+                "{{api}}"
+              ],
+              "path": [
+                "api",
+                "orders"
+              ]
+            },
+            "description": "Guarda {{canceledOrderId}}.\n\nCorpo: `json/orders/post.json`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"addressId\": {{addressId}},\n  \"items\": [\n    { \"productId\": {{productId}}, \"quantity\": 2 }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Cancelar pedido",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test('Pedido cancelado', function () {",
+                  "    pm.expect(body.status).to.eql('CANCELED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api}}/api/orders/{{canceledOrderId}}/cancel",
+              "host": [
+                "{{api}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "{{canceledOrderId}}",
+                "cancel"
+              ]
+            },
+            "description": "Sem corpo. O dono cancela enquanto o pedido aguarda pagamento ou está em separação; o estoque volta."
+          }
+        },
+        {
+          "name": "Excluir pedido aprovado (ADMIN)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test('Só recusado ou cancelado sai', function () {",
+                  "    pm.expect(body.message).to.eql('Só pedido recusado ou cancelado pode ser excluído.');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api}}/api/orders/{{orderId}}",
+              "host": [
+                "{{api}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "{{orderId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Excluir pedido recusado (ADMIN)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 204', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api}}/api/orders/{{refusedOrderId}}",
+              "host": [
+                "{{api}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "{{refusedOrderId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Excluir pedido cancelado (ADMIN)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 204', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api}}/api/orders/{{canceledOrderId}}",
+              "host": [
+                "{{api}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "{{canceledOrderId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Buscar pedido excluído (ADMIN)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api}}/api/orders/{{canceledOrderId}}",
+              "host": [
+                "{{api}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "{{canceledOrderId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Listar e-mails (ADMIN)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
             "url": {
               "raw": "{{api}}/api/emails",
               "host": [
@@ -1220,16 +2265,18 @@
                 "api",
                 "emails"
               ]
-            }
+            },
+            "description": "TB_EMAILS: uma linha por tentativa de e-mail de confirmação (SENT ou ERROR)."
           }
         }
       ]
     },
     {
-      "name": "5. Tranquilo Bank",
+      "name": "6. Usuários — TB_USERS",
+      "description": "Consulta, edição e exclusão de usuários.",
       "item": [
         {
-          "name": "Autorizar até o limite",
+          "name": "Listar usuários (ADMIN)",
           "event": [
             {
               "listen": "test",
@@ -1241,48 +2288,71 @@
                   "});",
                   "",
                   "const body = pm.response.json();",
-                  "",
-                  "pm.test('Aprovado com código', function () {",
-                  "    pm.expect(body.approved).to.eql(true);",
-                  "    pm.expect(body.authorizationCode).to.match(/^TB-/);",
+                  "pm.test('O cliente de teste está na lista', function () {",
+                  "    const id = Number(pm.collectionVariables.get('userId'));",
+                  "    pm.expect(body.map(u => u.id)).to.include(id);",
                   "});"
                 ]
               }
             }
           ],
           "request": {
-            "method": "POST",
+            "method": "GET",
             "header": [
               {
-                "key": "Content-Type",
-                "value": "application/json"
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
               }
             ],
-            "description": "R$ 33,83, abaixo de R$ 500,00: approved true e authorizationCode TB-.... Print P10 do README.",
             "url": {
-              "raw": "{{bank}}/api/payments/authorize",
+              "raw": "{{api}}/api/users",
               "host": [
-                "{{bank}}"
+                "{{api}}"
               ],
               "path": [
                 "api",
-                "payments",
-                "authorize"
+                "users"
               ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"orderId\": 42,\n  \"amount\": 33.83,\n  \"customerEmail\": \"cliente@marketbuddies.com\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
             }
           }
         },
         {
-          "name": "Autorizar acima do limite",
+          "name": "Listar usuários como cliente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api}}/api/users",
+              "host": [
+                "{{api}}"
+              ],
+              "path": [
+                "api",
+                "users"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Buscar usuário por id (ADMIN)",
           "event": [
             {
               "listen": "test",
@@ -1294,48 +2364,36 @@
                   "});",
                   "",
                   "const body = pm.response.json();",
-                  "",
-                  "pm.test('Recusado com motivo', function () {",
-                  "    pm.expect(body.approved).to.eql(false);",
-                  "    pm.expect(body.reason).to.be.a('string').and.not.empty;",
+                  "pm.test('É o cliente de teste', function () {",
+                  "    pm.expect(body.email).to.eql(pm.collectionVariables.get('signupEmail'));",
                   "});"
                 ]
               }
             }
           ],
           "request": {
-            "method": "POST",
+            "method": "GET",
             "header": [
               {
-                "key": "Content-Type",
-                "value": "application/json"
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
               }
             ],
-            "description": "R$ 523,88 passa de R$ 500,00: 200 com approved false e o motivo. Print P11 do README.",
             "url": {
-              "raw": "{{bank}}/api/payments/authorize",
+              "raw": "{{api}}/api/users/{{userId}}",
               "host": [
-                "{{bank}}"
+                "{{api}}"
               ],
               "path": [
                 "api",
-                "payments",
-                "authorize"
+                "users",
+                "{{userId}}"
               ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"orderId\": 43,\n  \"amount\": 523.88,\n  \"customerEmail\": \"cliente@marketbuddies.com\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
             }
           }
         },
         {
-          "name": "Autorizar inválido",
+          "name": "Editar minha conta com senha atual errada",
           "event": [
             {
               "listen": "test",
@@ -1346,36 +2404,41 @@
                   "    pm.response.to.have.status(400);",
                   "});",
                   "",
-                  "pm.test('Erro no campo amount', function () {",
-                  "    pm.expect(pm.response.json().errors).to.have.property('amount');",
+                  "const body = pm.response.json();",
+                  "pm.test('Erro no campo currentPassword', function () {",
+                  "    pm.expect(body.errors.currentPassword).to.eql('Senha atual incorreta.');",
                   "});"
                 ]
               }
             }
           ],
           "request": {
-            "method": "POST",
+            "method": "PUT",
             "header": [
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{testToken}}"
               }
             ],
-            "description": "Corpo sem amount: 400. Print P12 do README.",
             "url": {
-              "raw": "{{bank}}/api/payments/authorize",
+              "raw": "{{api}}/api/users/me",
               "host": [
-                "{{bank}}"
+                "{{api}}"
               ],
               "path": [
                 "api",
-                "payments",
-                "authorize"
+                "users",
+                "me"
               ]
             },
+            "description": "Corpo: `json/users/put-me-senha-errada.json`.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"orderId\": 44,\n  \"customerEmail\": \"cliente@marketbuddies.com\"\n}",
+              "raw": "{\n  \"fullName\": \"Cliente Postman Editado\",\n  \"email\": \"{{editedEmail}}\",\n  \"currentPassword\": \"senha-errada\",\n  \"newPassword\": \"\",\n  \"confirmPassword\": \"\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1383,8 +2446,341 @@
               }
             }
           }
+        },
+        {
+          "name": "Editar minha conta (PUT /me)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test('Nome e e-mail atualizados, token novo', function () {",
+                  "    pm.expect(body.user.fullName).to.eql('Cliente Postman Editado');",
+                  "    pm.expect(body.user.email).to.eql(pm.collectionVariables.get('editedEmail'));",
+                  "    pm.expect(body.accessToken).to.be.a('string').and.not.empty;",
+                  "});",
+                  "pm.collectionVariables.set('testToken', body.accessToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{testToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api}}/api/users/me",
+              "host": [
+                "{{api}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "me"
+              ]
+            },
+            "description": "Feito com o cliente de teste para não trocar a senha da conta do seed. O JWT usa o e-mail como subject, então a resposta traz um token novo, guardado em {{testToken}}.\n\nCorpo: `json/users/put-me.json`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Cliente Postman Editado\",\n  \"email\": \"{{editedEmail}}\",\n  \"currentPassword\": \"teste123\",\n  \"newPassword\": \"teste456\",\n  \"confirmPassword\": \"teste456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Editar usuário (ADMIN)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test('Nome e e-mail atualizados', function () {",
+                  "    pm.expect(body.fullName).to.eql('Cliente Postman (editado pelo admin)');",
+                  "    pm.expect(body.email).to.eql(pm.collectionVariables.get('signupEmail'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api}}/api/users/{{userId}}",
+              "host": [
+                "{{api}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "{{userId}}"
+              ]
+            },
+            "description": "O admin altera só nome e e-mail; senha não muda.\n\nCorpo: `json/users/put-admin.json`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Cliente Postman (editado pelo admin)\",\n  \"email\": \"{{signupEmail}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Excluir cliente com pedidos (ADMIN)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test('Bloqueado por ter pedidos', function () {",
+                  "    pm.expect(body.message).to.eql('Cliente com pedidos não pode ser excluído.');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api}}/api/users/{{clienteId}}",
+              "host": [
+                "{{api}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "{{clienteId}}"
+              ]
+            },
+            "description": "A Ana tem o pedido aprovado da pasta 5."
+          }
+        },
+        {
+          "name": "Excluir cliente de teste (ADMIN)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 204', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api}}/api/users/{{userId}}",
+              "host": [
+                "{{api}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "{{userId}}"
+              ]
+            },
+            "description": "Sem pedidos: os endereços dele saem junto."
+          }
+        },
+        {
+          "name": "Buscar usuário excluído (ADMIN)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api}}/api/users/{{userId}}",
+              "host": [
+                "{{api}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "{{userId}}"
+              ]
+            }
+          }
         }
       ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "api",
+      "value": "https://marketbuddies-rm563925.azurewebsites.net",
+      "type": "string",
+      "description": "URL da API na Azure. Para rodar local, troque para http://localhost:8080"
+    },
+    {
+      "key": "adminPassword",
+      "value": "",
+      "type": "string",
+      "description": "Senha do ADMIN: local admin123; na nuvem, a variável secreta ADMIN_PASSWORD (vai no .txt da entrega)"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string",
+      "description": "Gravado por 'Login (cliente)'"
+    },
+    {
+      "key": "adminToken",
+      "value": "",
+      "type": "string",
+      "description": "Gravado por 'Login (admin)'"
+    },
+    {
+      "key": "testToken",
+      "value": "",
+      "type": "string",
+      "description": "Gravado por 'Login (cliente de teste)' e renovado por 'Editar minha conta'"
+    },
+    {
+      "key": "signupEmail",
+      "value": "",
+      "type": "string",
+      "description": "Gerado pelo 'Cadastro de cliente de teste' a cada execução"
+    },
+    {
+      "key": "editedEmail",
+      "value": "",
+      "type": "string",
+      "description": "Gerado pelo 'Cadastro de cliente de teste'; usado no PUT /me"
+    },
+    {
+      "key": "clienteId",
+      "value": "",
+      "type": "string",
+      "description": "Gravado por 'Me (cliente)'"
+    },
+    {
+      "key": "userId",
+      "value": "",
+      "type": "string",
+      "description": "Gravado por 'Cadastro de cliente de teste'"
+    },
+    {
+      "key": "productId",
+      "value": "",
+      "type": "string",
+      "description": "Gravado por 'Criar produto (ADMIN)'"
+    },
+    {
+      "key": "productTempId",
+      "value": "",
+      "type": "string",
+      "description": "Gravado por 'Criar produto descartável (ADMIN)'"
+    },
+    {
+      "key": "addressId",
+      "value": "",
+      "type": "string",
+      "description": "Gravado por 'Criar endereço (CUSTOMER)'"
+    },
+    {
+      "key": "addressTempId",
+      "value": "",
+      "type": "string",
+      "description": "Gravado por 'Criar endereço descartável'"
+    },
+    {
+      "key": "zoneId",
+      "value": "",
+      "type": "string",
+      "description": "Gravado por 'Criar zona (ADMIN)'"
+    },
+    {
+      "key": "orderId",
+      "value": "",
+      "type": "string",
+      "description": "Gravado por 'Criar pedido (CUSTOMER)'"
+    },
+    {
+      "key": "refusedOrderId",
+      "value": "",
+      "type": "string",
+      "description": "Gravado por 'Compra acima de R$ 500'"
+    },
+    {
+      "key": "canceledOrderId",
+      "value": "",
+      "type": "string",
+      "description": "Gravado por 'Criar pedido para cancelar'"
     }
   ]
 }

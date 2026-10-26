@@ -1,6 +1,8 @@
 package br.com.fiap.marketbuddies.api.controllers.handlers;
 
 import br.com.fiap.marketbuddies.api.exceptions.BusinessException;
+import br.com.fiap.marketbuddies.api.exceptions.CepLookupException;
+import br.com.fiap.marketbuddies.api.exceptions.ConflictException;
 import br.com.fiap.marketbuddies.api.exceptions.FieldValidationException;
 import br.com.fiap.marketbuddies.api.exceptions.NotFoundException;
 import br.com.fiap.marketbuddies.api.exceptions.OutOfStockException;
@@ -9,6 +11,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -62,6 +65,21 @@ public class ApiExceptionHandler {
         return build(status, message, request, Map.of(ex.getField(), ex.getMessage()));
     }
 
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<Map<String, Object>> handleConflict(ConflictException ex, HttpServletRequest request) {
+        Map<String, String> errors = ex.getField() == null ? null : Map.of(ex.getField(), ex.getMessage());
+        return build(HttpStatus.CONFLICT, ex.getMessage(), request, errors);
+    }
+
+    /** Corrida contra um {@code unique}: a checagem do serviço passou, mas outra gravação chegou antes. */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, Object>> handleDataIntegrity(DataIntegrityViolationException ex,
+                                                                   HttpServletRequest request) {
+        log.warn("Violação de integridade em {}: {}", request.getRequestURI(), ex.getMostSpecificCause().getMessage());
+        return build(HttpStatus.CONFLICT, "Já existe um registro com esses dados; consulte de novo e reenvie",
+                request, null);
+    }
+
     @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
     public ResponseEntity<Map<String, Object>> handleConcurrentUpdate(ObjectOptimisticLockingFailureException ex,
                                                                       HttpServletRequest request) {
@@ -72,6 +90,11 @@ public class ApiExceptionHandler {
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<Map<String, Object>> handleBusiness(BusinessException ex, HttpServletRequest request) {
         return build(HttpStatus.UNPROCESSABLE_CONTENT, ex.getMessage(), request, null);
+    }
+
+    @ExceptionHandler(CepLookupException.class)
+    public ResponseEntity<Map<String, Object>> handleCepLookup(CepLookupException ex, HttpServletRequest request) {
+        return build(HttpStatus.BAD_GATEWAY, ex.getMessage(), request, null);
     }
 
     @ExceptionHandler(AuthenticationException.class)

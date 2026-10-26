@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MarketBuddies · Arquitetura macro</title>
+<style>
+  :root {
+    --azure: #0078D4;
+    --azure-soft: #EAF3FC;
+    --sql: #0062AD;
+    --insights: #773ADC;
+    --devops: #0078D4;
+    --boards: #009CCC;
+    --repos: #E05A2B;
+    --pipes: #2560E0;
+    --github: #24292F;
+    --postman: #FF6C37;
+    --gmail: #D93025;
+    --viacep: #2E8540;
+    --ink: #1B1F24;
+    --muted: #5B6470;
+    --line: #8A96A3;
+    --bg: #FFFFFF;
+    --panel: #F6F8FA;
+    --border: #D0D7DE;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.35;
+  }
+  .page { max-width: 1200px; margin: 0 auto; padding: 28px 16px 32px; }
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+  header h1 { font-size: 22px; margin: 0; font-weight: 600; }
+  header p { margin: 0; color: var(--muted); font-size: 13px; }
+
+  /* grade principal: clientes | seta | Azure | seta | externos */
+  .diagram {
+    display: grid;
+    grid-template-columns: 170px 96px 1fr 96px 170px;
+    grid-template-rows: auto 70px auto;
+    column-gap: 0;
+  }
+
+  .card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 1px 2px rgba(0,0,0,.05);
+  }
+  .card svg { flex: 0 0 auto; }
+  .card .t { font-weight: 600; font-size: 14px; }
+  .card .s { color: var(--muted); font-size: 12px; }
+  .card .n { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 11.5px; color: var(--ink); }
+
+  .group-label {
+    font-size: 12px; font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .04em; margin-bottom: 8px;
+  }
+
+  /* setas em CSS (sem texto dentro de SVG) */
+  .harrow { display: flex; flex-direction: column; justify-content: center; align-items: stretch; padding: 0 6px; }
+  .harrow .lbl { text-align: center; font-size: 11.5px; font-weight: 600; color: var(--ink); margin-bottom: 4px; white-space: nowrap; }
+  .harrow .ln { height: 2px; background: var(--line); position: relative; margin-right: 8px; }
+  .harrow .ln::after {
+    content: ""; position: absolute; right: -9px; top: -5px;
+    border-left: 10px solid var(--line); border-top: 6px solid transparent; border-bottom: 6px solid transparent;
+  }
+  .harrow.dashed .ln { background: none; border-top: 2px dashed var(--line); height: 0; }
+  .harrow.dashed .ln::after { top: -7px; }
+
+  .varrow { display: flex; align-items: center; justify-content: center; gap: 8px; height: 100%; }
+  .varrow .ln { width: 2px; height: calc(100% - 10px); background: var(--line); position: relative; }
+  .varrow .ln::after {
+    content: ""; position: absolute; bottom: -9px; left: -5px;
+    border-top: 10px solid var(--line); border-left: 6px solid transparent; border-right: 6px solid transparent;
+  }
+  .varrow .lbl { font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+  .varrow.dashed .ln { background: none; border-left: 2px dashed var(--line); width: 0; }
+  .varrow.dashed .ln::after { left: -7px; }
+
+  /* faixa de cima: GitHub -> Azure DevOps */
+  .devops {
+    border: 1px solid #B9D6F2; background: var(--azure-soft); border-radius: 8px; padding: 12px 14px;
+  }
+  .devops-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .devops-head .t { font-weight: 600; font-size: 15px; }
+  .devops-head .n { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 11.5px; color: var(--muted); }
+  .devops-row { display: grid; grid-template-columns: 1fr 1fr 2.2fr; gap: 10px; }
+  .svc { background: #fff; border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; display: flex; gap: 8px; align-items: center; }
+  .svc .t { font-weight: 600; font-size: 13px; }
+  .svc .s { color: var(--muted); font-size: 11.5px; }
+  .stages { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+  .stage { font-size: 11.5px; font-weight: 600; border-radius: 4px; padding: 2px 8px; background: #E8EEFB; color: var(--pipes); border: 1px solid #C5D3F5; white-space: nowrap; }
+  .stage-sep { color: var(--muted); font-size: 12px; }
+
+  /* Azure: assinatura + resource group */
+  .azure {
+    border: 1px solid var(--azure); border-radius: 8px; padding: 10px 12px 14px; position: relative;
+  }
+  .azure-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .azure-head .t { font-weight: 600; color: var(--azure); font-size: 14px; }
+  .rg {
+    border: 2px dashed #7FB3E3; border-radius: 8px; padding: 10px 12px 14px; background: #FBFDFF;
+  }
+  .rg-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .rg-head .t { font-weight: 600; font-size: 13px; }
+  .rg-head .n { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 11.5px; color: var(--muted); }
+  .rg-grid { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: auto 64px auto; column-gap: 18px; }
+  .plan {
+    grid-column: 1 / span 2;
+    border: 1px solid #9CC3E8; border-radius: 6px; background: var(--azure-soft); padding: 8px 10px 10px;
+  }
+  .plan-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .plan-head .t { font-weight: 600; font-size: 12.5px; }
+  .plan-head .n { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 11.5px; color: var(--muted); }
+  .webapp { border-color: var(--azure); border-width: 2px; }
+  .webapp ul { margin: 4px 0 0; padding-left: 16px; color: var(--muted); font-size: 12px; }
+  .webapp-body { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: center; }
+  .sqlbox { border: 1px solid #9CC3E8; border-radius: 6px; padding: 8px 10px 10px; background: #F3F8FD; }
+  .sqlbox .card { margin-top: 6px; }
+
+  .clients { display: flex; flex-direction: column; gap: 12px; }
+  .ext { display: grid; grid-template-rows: 1fr 1fr; row-gap: 14px; }
+  .ext-wrap { grid-column: 4 / span 2; display: grid; grid-template-columns: 96px 170px; grid-template-rows: auto auto auto; row-gap: 10px; align-self: start; }
+
+  .legend { margin-top: 22px; display: grid; grid-template-columns: 1.15fr 1fr; gap: 18px; }
+  .legend h2 { font-size: 13px; margin: 0 0 8px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+  th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--panel); font-weight: 600; }
+  td code, .mono { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 11.5px; }
+  .note { color: var(--muted); font-size: 12px; margin-top: 8px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <h1>MarketBuddies · Arquitetura macro (CP6 · DevOps)</h1>
+    <p>Azure · brazilsouth · uma API Spring Boot, um banco gerenciado</p>
+  </header>
+
+  <div class="diagram">
+    <!-- Linha 1: GitHub -> Azure DevOps -->
+    <div style="grid-column:1; grid-row:1; align-self:center;">
+      <div class="card">
+        <svg width="36" height="36" viewBox="0 0 36 36" aria-hidden="true">
+          <circle cx="18" cy="18" r="17" fill="#24292F"/>
+          <circle cx="12" cy="11" r="3" fill="#fff"/>
+          <circle cx="12" cy="25" r="3" fill="#fff"/>
+          <circle cx="24" cy="15" r="3" fill="#fff"/>
+          <path d="M12 14v8M24 18c0 3-4 4-9 6" stroke="#fff" stroke-width="2" fill="none"/>
+        </svg>
+        <div><div class="t">GitHub</div><div class="s">repositório de origem</div></div>
+      </div>
+    </div>
+    <div class="harrow dashed" style="grid-column:2; grid-row:1;"><div class="lbl">importação</div><div class="ln"></div></div>
+
+    <div class="devops" style="grid-column:3 / span 3; grid-row:1;">
+      <div class="devops-head">
+        <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true">
+          <path d="M3 9l11-6 13 4v16l-13 4L3 21l8 2V7z" fill="#0078D4"/>
+          <path d="M11 7v16l8-2V9z" fill="#5EA0EF"/>
+        </svg>
+        <div class="t">Azure DevOps</div>
+        <div class="n">dev.azure.com/RM5639255/MarketBuddies</div>
+      </div>
+      <div class="devops-row">
+        <div class="svc">
+          <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">
+            <rect x="1" y="1" width="24" height="24" rx="3" fill="#009CCC"/>
+            <rect x="5" y="6" width="6" height="14" rx="1" fill="#fff"/>
+            <rect x="14" y="6" width="7" height="8" rx="1" fill="#fff"/>
+          </svg>
+          <div><div class="t">Boards</div><div class="s">Task e work items</div></div>
+        </div>
+        <div class="svc">
+          <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">
+            <rect x="1" y="1" width="24" height="24" rx="3" fill="#E05A2B"/>
+            <circle cx="9" cy="8" r="2.4" fill="#fff"/><circle cx="9" cy="19" r="2.4" fill="#fff"/><circle cx="18" cy="11" r="2.4" fill="#fff"/>
+            <path d="M9 10v7M18 13c0 3-4 4-8 5" stroke="#fff" stroke-width="1.8" fill="none"/>
+          </svg>
+          <div><div class="t">Repos</div><div class="s">branch main + PR</div></div>
+        </div>
+        <div class="svc">
+          <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">
+            <rect x="1" y="1" width="24" height="24" rx="3" fill="#2560E0"/>
+            <path d="M8 18l3-7 7-5-2 8-7 5z" fill="#fff"/>
+            <circle cx="15" cy="10" r="1.6" fill="#2560E0"/>
+          </svg>
+          <div>
+            <div class="t">Pipelines <span class="s">· azure-pipeline.yml</span></div>
+            <div class="stages">
+              <span class="stage">CI · build + testes</span><span class="stage-sep">→</span>
+              <span class="stage">CD · deploy</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Linha 2: seta do CD para o Web App -->
+    <div style="grid-column:3; grid-row:2;">
+      <div class="varrow"><div class="ln"></div><div class="lbl">zip deploy (JAR)</div></div>
+    </div>
+
+    <!-- Linha 3: clientes -> Azure -> externos -->
+    <div class="clients" style="grid-column:1; grid-row:3; align-self:start; margin-top:92px;">
+      <div class="group-label">Clientes</div>
+      <div class="card">
+        <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true">
+          <circle cx="17" cy="11" r="6" fill="#5B6470"/>
+          <path d="M5 31c0-7 5-11 12-11s12 4 12 11z" fill="#5B6470"/>
+        </svg>
+        <div><div class="t">Navegador</div><div class="s">loja e admin</div></div>
+      </div>
+      <div class="card">
+        <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true">
+          <circle cx="17" cy="17" r="16" fill="#FF6C37"/>
+          <path d="M11 22l9-9 3 3-9 9h-3z" fill="#fff"/>
+        </svg>
+        <div><div class="t">Postman</div><div class="s">rotas /api</div></div>
+      </div>
+    </div>
+    <div class="harrow" style="grid-column:2; grid-row:3; align-self:start; margin-top:150px;"><div class="lbl">HTTPS</div><div class="ln"></div></div>
+
+    <div class="azure" style="grid-column:3; grid-row:3;">
+      <div class="azure-head">
+        <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true">
+          <path d="M8 2h6L7 20H1z" fill="#0078D4"/>
+          <path d="M13 6l8 14H9l4-3h-3z" fill="#50A0E6"/>
+        </svg>
+        <div class="t">Microsoft Azure</div>
+      </div>
+      <div class="rg">
+        <div class="rg-head">
+          <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true">
+            <path d="M5 3H2v16h3M17 3h3v16h-3" stroke="#0078D4" stroke-width="2" fill="none"/>
+            <rect x="7" y="7" width="8" height="8" fill="#50A0E6"/>
+          </svg>
+          <div class="t">Resource Group</div>
+          <div class="n">rg-cp6-marketbuddies · brazilsouth</div>
+        </div>
+        <div class="rg-grid">
+          <div class="plan">
+            <div class="plan-head">
+              <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
+                <rect x="1" y="3" width="18" height="14" rx="2" fill="#0078D4"/>
+                <rect x="4" y="6" width="5" height="3" fill="#fff"/><rect x="11" y="6" width="5" height="3" fill="#fff"/>
+                <rect x="4" y="11" width="5" height="3" fill="#fff"/><rect x="11" y="11" width="5" height="3" fill="#fff"/>
+              </svg>
+              <div class="t">App Service Plan</div>
+              <div class="n">plan-cp6-marketbuddies · B1 Linux</div>
+            </div>
+            <div class="card webapp">
+              <div class="webapp-body">
+                <svg width="52" height="52" viewBox="0 0 52 52" aria-hidden="true">
+                  <circle cx="26" cy="26" r="24" fill="#0078D4"/>
+                  <ellipse cx="26" cy="26" rx="10" ry="24" fill="none" stroke="#fff" stroke-width="2.2"/>
+                  <path d="M3 19h46M3 33h46" stroke="#fff" stroke-width="2.2"/>
+                  <path d="M26 2v48" stroke="#fff" stroke-width="2.2"/>
+                </svg>
+                <div>
+                  <div class="t">Web App · App Service</div>
+                  <div class="n">marketbuddies-rm563925 · Java 21</div>
+                  <ul>
+                    <li>Spring Boot: telas Thymeleaf e API REST</li>
+                    <li>pagamento interno e job de entrega</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="grid-column:1; grid-row:2;">
+            <div class="varrow"><div class="ln"></div><div class="lbl">JDBC 1433</div></div>
+          </div>
+          <div style="grid-column:2; grid-row:2;">
+            <div class="varrow dashed"><div class="ln"></div><div class="lbl">telemetria</div></div>
+          </div>
+
+          <div class="sqlbox" style="grid-column:1; grid-row:3;">
+            <div class="plan-head">
+              <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
+                <rect x="2" y="2" width="16" height="16" rx="2" fill="#0062AD"/>
+                <path d="M5 7h10M5 10h10M5 13h10" stroke="#fff" stroke-width="1.6"/>
+              </svg>
+              <div><div class="t">SQL Server</div><div class="n">sql-marketbuddies-rm563925</div></div>
+            </div>
+            <div class="card">
+              <svg width="38" height="44" viewBox="0 0 38 44" aria-hidden="true">
+                <path d="M2 7v30c0 3.3 7.6 6 17 6s17-2.7 17-6V7z" fill="#0062AD"/>
+                <ellipse cx="19" cy="7" rx="17" ry="6" fill="#50A0E6"/>
+                <path d="M2 17c0 3.3 7.6 6 17 6s17-2.7 17-6M2 27c0 3.3 7.6 6 17 6s17-2.7 17-6" stroke="#fff" stroke-width="1.4" fill="none" opacity=".7"/>
+              </svg>
+              <div><div class="t">Azure SQL Database</div><div class="n">marketbuddies · Basic</div></div>
+            </div>
+          </div>
+
+          <div class="card" style="grid-column:2; grid-row:3; align-self:start;">
+            <svg width="38" height="42" viewBox="0 0 38 42" aria-hidden="true">
+              <path d="M19 2C10 2 4 8.5 4 16.5c0 5.5 3 9 6 12v5h18v-5c3-3 6-6.5 6-12C34 8.5 28 2 19 2z" fill="#773ADC"/>
+              <rect x="11" y="35" width="16" height="5" rx="1.5" fill="#5B2BA8"/>
+              <path d="M13 18l4 4 8-8" stroke="#fff" stroke-width="2.4" fill="none"/>
+            </svg>
+            <div><div class="t">Application Insights</div><div class="n">ai-cp6-marketbuddies</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ext-wrap" style="grid-row:3; margin-top:84px;">
+      <div class="group-label" style="grid-column:2; grid-row:1; margin-bottom:0;">Externos</div>
+      <div class="harrow" style="grid-column:1; grid-row:2;"><div class="lbl">HTTPS</div><div class="ln"></div></div>
+      <div style="grid-column:2; grid-row:2;">
+        <div class="card">
+          <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true">
+            <path d="M17 2C11 2 6 7 6 13c0 8 11 19 11 19s11-11 11-19c0-6-5-11-11-11z" fill="#2E8540"/>
+            <circle cx="17" cy="13" r="4.5" fill="#fff"/>
+          </svg>
+          <div><div class="t">ViaCEP</div><div class="s">busca de CEP</div></div>
+        </div>
+      </div>
+      <div class="harrow" style="grid-column:1; grid-row:3;"><div class="lbl">SMTP 587</div><div class="ln"></div></div>
+      <div class="card" style="grid-column:2; grid-row:3;">
+        <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true">
+          <rect x="2" y="7" width="30" height="21" rx="2" fill="#fff" stroke="#D93025" stroke-width="2"/>
+          <path d="M3 9l14 10 14-10" stroke="#D93025" stroke-width="2.4" fill="none"/>
+        </svg>
+        <div><div class="t">Gmail SMTP</div><div class="s">e-mail do pedido</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <div>
+      <h2>O que cada seta transporta</h2>
+      <table>
+        <tr><th>Seta</th><th>De → para</th><th>Conteúdo</th></tr>
+        <tr><td>importação</td><td>GitHub → Azure Repos</td><td>Histórico do repositório, importado uma vez</td></tr>
+        <tr><td>zip deploy</td><td>Pipelines (CD) → Web App</td><td>JAR do estágio CI e as app settings com os segredos</td></tr>
+        <tr><td>HTTPS</td><td>Navegador / Postman → Web App</td><td>Telas (cookie JWT) e <code>/api/**</code> (Bearer JWT)</td></tr>
+        <tr><td>JDBC 1433</td><td>Web App → Azure SQL</td><td>Tabelas <code>TB_*</code>, criadas pelo Hibernate</td></tr>
+        <tr><td>HTTPS</td><td>Web App → ViaCEP</td><td>Consulta de CEP no cadastro de endereço</td></tr>
+        <tr><td>SMTP 587</td><td>Web App → Gmail</td><td>E-mail de pagamento aprovado (STARTTLS)</td></tr>
+        <tr><td>telemetria</td><td>Web App → App Insights</td><td>Requisições, falhas e tempos (agente Java)</td></tr>
+      </table>
+    </div>
+    <div>
+      <h2>Recursos criados por infra/infra-app.sh</h2>
+      <table>
+        <tr><th>Recurso</th><th>Nome</th><th>SKU</th></tr>
+        <tr><td>Resource Group</td><td class="mono">rg-cp6-marketbuddies</td><td>—</td></tr>
+        <tr><td>App Service Plan</td><td class="mono">plan-cp6-marketbuddies</td><td>B1 Linux</td></tr>
+        <tr><td>Web App</td><td class="mono">marketbuddies-rm563925</td><td>JAVA:21-java21</td></tr>
+        <tr><td>SQL Server</td><td class="mono">sql-marketbuddies-rm563925</td><td>—</td></tr>
+        <tr><td>SQL Database</td><td class="mono">marketbuddies</td><td>Basic</td></tr>
+        <tr><td>Application Insights</td><td class="mono">ai-cp6-marketbuddies</td><td>web</td></tr>
+      </table>
+      <p class="note">Região de todos: brazilsouth. Pipeline: gatilho na main, service connection <span class="mono">sc-marketbuddies</span>, environment <span class="mono">marketbuddies-prod</span>.</p>
+    </div>
+  </div>
+</div>
+</body>
+</html>

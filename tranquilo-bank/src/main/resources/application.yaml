@@ -1,9 +1,0 @@
-spring:
-  application:
-    name: tranquilo-bank
-
-server:
-  port: ${PORT:8090}
-
-tranquilo-bank:
-  approval-limit: 500.00

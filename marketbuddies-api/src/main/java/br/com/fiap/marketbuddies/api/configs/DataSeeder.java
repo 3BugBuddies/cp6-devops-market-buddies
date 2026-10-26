@@ -1,9 +1,13 @@
 package br.com.fiap.marketbuddies.api.configs;
 
+import br.com.fiap.marketbuddies.api.entities.AddressEntity;
+import br.com.fiap.marketbuddies.api.entities.DeliveryZoneEntity;
 import br.com.fiap.marketbuddies.api.entities.ProductEntity;
 import br.com.fiap.marketbuddies.api.entities.UserEntity;
 import br.com.fiap.marketbuddies.api.enums.Category;
 import br.com.fiap.marketbuddies.api.enums.Role;
+import br.com.fiap.marketbuddies.api.repositories.AddressRepository;
+import br.com.fiap.marketbuddies.api.repositories.DeliveryZoneRepository;
 import br.com.fiap.marketbuddies.api.repositories.ProductRepository;
 import br.com.fiap.marketbuddies.api.repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +41,8 @@ public class DataSeeder implements CommandLineRunner {
 
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
+    private final AddressRepository addressRepository;
+    private final DeliveryZoneRepository deliveryZoneRepository;
     private final PasswordEncoder passwordEncoder;
     private final AdminProperties adminProperties;
 
@@ -46,17 +52,20 @@ public class DataSeeder implements CommandLineRunner {
         seedUsers();
         seedProducts();
         backfillProductImages();
+        seedDeliveryZones();
     }
 
     private void seedUsers() {
         if (userRepository.count() > 0) {
             return;
         }
+        UserEntity customer = user("Ana Souza", TEST_CUSTOMER_EMAIL, TEST_CUSTOMER_PASSWORD, Role.CUSTOMER);
         userRepository.saveAll(List.of(
                 user("Gerência", adminProperties.email(), adminProperties.password(), Role.ADMIN),
-                user("Ana Souza", TEST_CUSTOMER_EMAIL, TEST_CUSTOMER_PASSWORD, Role.CUSTOMER)
+                customer
         ));
-        log.info("Seed: ADMIN {} e cliente de teste criados", adminProperties.email());
+        addressRepository.save(homeAddress(customer));
+        log.info("Seed: ADMIN {} e cliente de teste (com endereço) criados", adminProperties.email());
     }
 
     private void seedProducts() {
@@ -88,6 +97,18 @@ public class DataSeeder implements CommandLineRunner {
         log.info("Seed: imagem preenchida em {} produtos", missing.size());
     }
 
+    private void seedDeliveryZones() {
+        if (deliveryZoneRepository.count() > 0) {
+            return;
+        }
+        deliveryZoneRepository.saveAll(List.of(
+                zone("Centro expandido SP", "01000000", "05999999", "7.90", 1),
+                zone("Grande SP oeste", "06000000", "06999999", "14.90", 2),
+                zone("Zona leste SP", "08000000", "08499999", "9.90", 1)
+        ));
+        log.info("Seed: 3 zonas de entrega criadas");
+    }
+
     private UserEntity user(String fullName, String email, String rawPassword, Role role) {
         UserEntity user = new UserEntity();
         user.setFullName(fullName);
@@ -95,6 +116,20 @@ public class DataSeeder implements CommandLineRunner {
         user.setPassword(passwordEncoder.encode(rawPassword));
         user.setRole(role);
         return user;
+    }
+
+    /** Só nasce junto com a Ana: se ela excluir o endereço, nenhum boot recria. */
+    private static AddressEntity homeAddress(UserEntity customer) {
+        AddressEntity address = new AddressEntity();
+        address.setCustomer(customer);
+        address.setLabel("Casa");
+        address.setCep("01310100");
+        address.setStreet("Avenida Paulista");
+        address.setNumber("1000");
+        address.setDistrict("Bela Vista");
+        address.setCity("São Paulo");
+        address.setUf("SP");
+        return address;
     }
 
     private ProductEntity product(String name, Category category, String cost, String markup,
@@ -109,5 +144,15 @@ public class DataSeeder implements CommandLineRunner {
         product.setDescription(description);
         product.setImagePath(SEED_IMAGES.get(name));
         return product;
+    }
+
+    private DeliveryZoneEntity zone(String name, String cepStart, String cepEnd, String fee, int deliveryDays) {
+        DeliveryZoneEntity zone = new DeliveryZoneEntity();
+        zone.setName(name);
+        zone.setCepStart(cepStart);
+        zone.setCepEnd(cepEnd);
+        zone.setFee(new BigDecimal(fee));
+        zone.setDeliveryDays(deliveryDays);
+        return zone;
     }
 }
