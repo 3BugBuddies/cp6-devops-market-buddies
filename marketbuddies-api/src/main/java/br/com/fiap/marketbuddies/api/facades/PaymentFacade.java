@@ -7,12 +7,11 @@ import br.com.fiap.marketbuddies.api.enums.OrderOrigin;
 import br.com.fiap.marketbuddies.api.enums.OrderStatus;
 import br.com.fiap.marketbuddies.api.enums.StatusEmail;
 import br.com.fiap.marketbuddies.api.exceptions.BusinessException;
-import br.com.fiap.marketbuddies.api.producers.PaymentRequestProducer;
 import br.com.fiap.marketbuddies.api.services.EmailService;
 import br.com.fiap.marketbuddies.api.services.OrderService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.amqp.AmqpException;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -23,23 +22,20 @@ import java.util.List;
 public class PaymentFacade {
 
     private final OrderService orderService;
-    private final PaymentRequestProducer paymentRequestProducer;
+    private final ApplicationEventPublisher eventPublisher;
     private final EmailService emailService;
 
     private static final String DEFAULT_REFUSAL = "Pagamento recusado pelo banco";
     public static final String EXPIRED_REASON = "Tempo esgotado";
 
-    /** Publica o pedido de pagamento só depois do commit de {@code createOrder}. */
+    /**
+     * Publica o pedido de pagamento para o {@code PaymentRequestConsumer}, que só o processa depois do commit
+     * de {@code createOrder}.
+     */
     public OrderDto requestPayment(Long customerId, List<OrderItemRequestDto> items, OrderOrigin origin) {
         OrderService.CreatedOrder created = orderService.createOrder(customerId, items, origin);
-        Long orderId = created.order().id();
-        try {
-            paymentRequestProducer.send(created.paymentRequest());
-            log.info("Pedido {} publicado na payment-request-queue", orderId);
-        } catch (AmqpException ex) {
-            log.error("Pedido {} gravado, mas a publicação no RabbitMQ falhou; o job de expiração vai recusá-lo",
-                    orderId, ex);
-        }
+        eventPublisher.publishEvent(created.paymentRequest());
+        log.info("Pedido {} enviado para pagamento", created.order().id());
         return created.order();
     }
 

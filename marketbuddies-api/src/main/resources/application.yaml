@@ -13,15 +13,6 @@ spring:
     open-in-view: false
     show-sql: ${SHOW_SQL:false}
 
-  rabbitmq:
-    host: ${RABBITMQ_HOST:localhost}
-    port: ${RABBITMQ_PORT:5672}
-    username: ${RABBITMQ_USER:guest}
-    password: ${RABBITMQ_PASSWORD:guest}
-    listener:
-      simple:
-        default-requeue-rejected: false
-
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}
     port: ${MAIL_PORT:587}
@@ -51,6 +42,10 @@ marketbuddies:
   orders:
     expiration: 5m
     expiration-check-ms: 60000
+  payment:
+    # Regra do Tranquilo Bank, que agora roda dentro da API
+    approval-limit: 500.00
+    delay: 3s
 
 app:
   jwt:

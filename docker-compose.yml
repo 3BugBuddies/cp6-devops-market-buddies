@@ -1,31 +1,39 @@
-# Infraestrutura local: PostgreSQL + RabbitMQ com painel de gerenciamento.
-# Os três serviços Java rodam pela IDE.
-#   docker compose up -d
-#   Painel do RabbitMQ: http://localhost:15672 (guest / guest)
+# Banco local para desenvolvimento: PostgreSQL. A API roda pela IDE ou no profile "app":
+#   docker compose up -d                          só o banco
+#   docker compose --profile app up -d --build    banco + API em http://localhost:8080
+# Na nuvem o banco é o Azure SQL (criado por infra/infra-app.sh).
 
 services:
+  api:
+    profiles: ["app"]
+    build: ./marketbuddies-api
+    container_name: cp6-marketbuddies-api
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/marketbuddies
+      DB_USER: marketbuddies
+      DB_PASSWORD: marketbuddies
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   postgres:
     image: postgres:18
-    container_name: marketbuddies-postgres
+    container_name: cp6-marketbuddies-postgres
     environment:
       POSTGRES_DB: marketbuddies
       POSTGRES_USER: marketbuddies
       POSTGRES_PASSWORD: marketbuddies
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U marketbuddies -d marketbuddies"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
     volumes:
       - postgres-data:/var/lib/postgresql
-
-  rabbitmq:
-    image: rabbitmq:4-management
-    container_name: marketbuddies-rabbitmq
-    environment:
-      # Na imagem 4.x o painel vem sem coleta de métricas (sem conexões, consumidores
-      # nem gráfico de mensagens). Religada para o vídeo; o Railway usa a mesma variável.
-      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "-rabbitmq_management_agent disable_metrics_collector false"
-    ports:
-      - "5672:5672"
-      - "15672:15672"
 
 volumes:
   postgres-data:
