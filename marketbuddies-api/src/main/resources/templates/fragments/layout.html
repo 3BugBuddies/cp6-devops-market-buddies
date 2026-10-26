@@ -32,6 +32,7 @@
             <a sec:authorize="hasRole('CUSTOMER')" th:href="@{/addresses}" th:classappend="${active == 'enderecos'} ? 'is-active'">Meus endereços</a>
             <th:block sec:authorize="hasRole('ADMIN')">
                 <a th:href="@{/admin/products}" th:classappend="${active == 'gestao'} ? 'is-active'">Gerenciar produtos</a>
+                <a th:href="@{/admin/delivery-zones}" th:classappend="${active == 'zonas'} ? 'is-active'">Zonas de entrega</a>
                 <a th:href="@{/admin/orders}" th:classappend="${active == 'pedidos'} ? 'is-active'">Pedidos</a>
                 <a th:href="@{/admin/dashboard}" th:classappend="${active == 'dashboard'} ? 'is-active'">Dashboard</a>
             </th:block>

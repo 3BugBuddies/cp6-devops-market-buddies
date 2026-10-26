@@ -159,6 +159,35 @@ document.addEventListener('DOMContentLoaded', () => {
     preview();
   }
 
+  const zoneModal = document.getElementById('zone-modal');
+  const zoneForm = zoneModal?.querySelector('[data-zone-form]');
+  if (zoneModal && zoneForm) {
+    const field = (name) => zoneForm.elements.namedItem(name);
+    const deleteButton = zoneForm.querySelector('[data-modal-delete]');
+    const open = (data) => {
+      zoneForm.querySelectorAll('.mb-field__error, [data-zone-global-error]').forEach((el) => el.remove());
+      zoneForm.querySelectorAll('.mb-input--error').forEach((el) => el.classList.remove('mb-input--error'));
+      const base = zoneForm.dataset.baseAction;
+      zoneForm.action = data.id ? base + '/' + data.id : base;
+      field('id').value = data.id || '';
+      field('name').value = data.name || '';
+      field('cepStart').value = data.cepStart || '';
+      field('cepEnd').value = data.cepEnd || '';
+      field('fee').value = data.fee || '';
+      field('deliveryDays').value = data.days || '';
+      document.getElementById('zm-title').textContent = data.id ? 'Editar zona' : 'Nova zona';
+      deleteButton.hidden = !data.id;
+      deleteButton.dataset.id = data.id || '';
+      deleteButton.dataset.name = data.name || '';
+      zoneModal.showModal();
+    };
+    document.querySelectorAll('[data-zone-new]').forEach((button) => button.addEventListener('click', () => open({})));
+    document.querySelectorAll('[data-zone-edit]').forEach((button) => button.addEventListener('click', () => open(button.dataset)));
+
+    deleteButton.dataset.id = field('id').value;
+    deleteButton.dataset.name = field('name').value;
+  }
+
   const deleteModal = document.getElementById('delete-modal');
   const deleteForm = deleteModal?.querySelector('[data-delete-form]');
   if (deleteModal && deleteForm) {
@@ -166,9 +195,10 @@ document.addEventListener('DOMContentLoaded', () => {
       deleteForm.action = deleteForm.dataset.baseAction + '/' + id + '/delete';
       deleteForm.querySelector('[data-delete-name]').textContent = name;
       productModal?.close();
+      zoneModal?.close();
       deleteModal.showModal();
     };
-    document.querySelectorAll('[data-product-delete], [data-modal-delete], [data-delete]').forEach((button) => {
+    document.querySelectorAll('[data-product-delete], [data-zone-delete], [data-modal-delete], [data-delete]').forEach((button) => {
       button.addEventListener('click', () => confirmDelete(button.dataset.id, button.dataset.name));
     });
   }
