@@ -101,7 +101,7 @@ public class AuthViewController {
         return "redirect:/login?registered";
     }
 
-    private static boolean isInternalPath(String redirect) {
+    static boolean isInternalPath(String redirect) {
         return redirect != null
                 && redirect.startsWith("/")
                 && !redirect.startsWith("//")
