@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<div th:fragment="timeline(o)" th:if="${o.delivery != null}"
+     th:with="current=${o.delivery.status.ordinal()}, delivered=${o.delivery.status.name() == 'ENTREGUE'}"
+     style="border-top: 1px solid var(--mb-line); padding-top: 12px; display: flex; flex-direction: column; gap: 12px">
+    <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap">
+        <span class="mb-label">Entrega</span>
+        <span class="mb-muted" th:text="${'Atualizado às ' + #temporals.format(o.delivery.updatedAt, 'HH:mm:ss')}">Atualizado às 20:53:12</span>
+    </div>
+    <ol class="mb-steps">
+        <li th:each="label, step : ${ {'Em separação', 'Saiu para entrega', 'Entregue'} }"
+            th:with="done=${delivered or step.index < current}, now=${!delivered and step.index == current}"
+            th:classappend="${done ? 'mb-steps\_\_item--done' : (now ? 'mb-steps\_\_item--now' : '')}"
+            class="mb-steps__item" th:attr="aria-current=${now} ? 'step' : null">
+            <span class="mb-steps__dot"><svg th:if="${done}" class="mb-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg></span>
+            <span th:text="${label}">Em separação</span>
+        </li>
+    </ol>
+</div>
+
+</body>
+</html>

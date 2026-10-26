@@ -51,8 +51,10 @@
 
         <section th:if="${order.status.name() == 'APPROVED'}" class="mb-card"
                  style="max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px"
-                 th:attr="data-order-status-url=${order.statusEmail == null and !admin} ? @{/orders/{id}/status(id=${order.id})} : null,
-                          data-order-wait=${order.statusEmail == null and !admin} ? 'email' : null">
+                 th:with="polling=${!admin and (order.statusEmail == null or (order.delivery != null and order.delivery.status.name() != 'ENTREGUE'))}"
+                 th:attr="data-order-status-url=${polling} ? @{/orders/{id}/status(id=${order.id})} : null,
+                          data-order-wait=${polling and order.statusEmail == null} ? 'email' : null,
+                          data-order-delivery=${polling} ? ${order.delivery == null ? '' : order.delivery.status.name()} : null">
             <div style="display: flex; gap: 16px; align-items: center">
                 <span style="width: 56px; height: 56px; flex: none; border-radius: 50%; background: var(--mb-success-bg); color: var(--mb-success); display: grid; place-items: center"><svg class="mb-icon" viewBox="0 0 24 24" style="width: 30px; height: 30px" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg></span>
                 <div style="display: flex; flex-direction: column; gap: 4px">
@@ -80,6 +82,7 @@
                 <span style="color: var(--mb-ink-600)">Código de autorização</span>
                 <strong style="font-variant-numeric: tabular-nums" th:text="${order.authorizationCode}">TB-7F3A9C21</strong>
             </div>
+            <div th:replace="~{fragments/delivery :: timeline(${order})}"></div>
             <div style="border-top: 1px solid var(--mb-line); padding-top: 12px; display: flex; flex-direction: column; gap: 8px">
                 <div th:each="it : ${order.items}" class="mb-row">
                     <span th:text="${it.quantity + ' × ' + it.productName}">1 × Café torrado e moído 500 g</span>

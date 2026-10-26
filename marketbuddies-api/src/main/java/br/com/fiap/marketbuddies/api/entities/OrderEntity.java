@@ -1,5 +1,6 @@
 package br.com.fiap.marketbuddies.api.entities;
 
+import br.com.fiap.marketbuddies.api.enums.DeliveryStatus;
 import br.com.fiap.marketbuddies.api.enums.OrderOrigin;
 import br.com.fiap.marketbuddies.api.enums.OrderStatus;
 import jakarta.persistence.*;
@@ -48,6 +49,12 @@ public class OrderEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
     private OrderOrigin origin;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private DeliveryStatus deliveryStatus;
+
+    private LocalDateTime deliveryUpdatedAt;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
