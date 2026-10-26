@@ -144,8 +144,8 @@ Cadastradas em Pipelines → Edit → Variables. Nenhum valor fica no repositór
 
 ## Modelo de dados
 
-As tabelas são criadas pelo Hibernate a partir das entidades JPA. O DDL completo fica em `script.sql`, na raiz
-(gerado do schema do Azure SQL na T6).
+As tabelas são criadas pelo Hibernate a partir das entidades JPA. O DDL completo fica em [`script.sql`](script.sql), na
+raiz: é o mesmo DDL que criou o banco no Azure SQL (profile `schema`, ver `application-schema.yaml`).
 
 | Tabela | Conteúdo | Relacionamentos |
 |--------|----------|-----------------|
@@ -244,8 +244,8 @@ O preço de venda é calculado pela API a partir de custo, markup e desconto.
 | `POST` | `/api/orders` | CUSTOMER | Cria o pedido e pede o pagamento (202 Accepted) |
 | `GET` | `/api/orders` | autenticado | Pedidos do cliente; o ADMIN vê todos |
 | `GET` | `/api/orders/{id}` | autenticado | Detalhe com itens, pagamento e entrega |
-| `POST` | `/api/orders/{id}/cancel` | CUSTOMER (dono) | Cancela até a entrega sair **(T5b, em andamento)** |
-| `DELETE` | `/api/orders/{id}` | ADMIN | Exclui pedido recusado ou cancelado **(T5b, em andamento)** |
+| `POST` | `/api/orders/{id}/cancel` | CUSTOMER (dono) | Cancela até a entrega sair |
+| `DELETE` | `/api/orders/{id}` | ADMIN | Exclui pedido recusado ou cancelado |
 
 | Campo | Obrigatório | Regra |
 |-------|:-----------:|-------|
@@ -265,11 +265,11 @@ CEP fora de todas as zonas → 422 "Não entregamos no CEP …".
 
 | Método | Rota | Perfil | Descrição |
 |--------|------|--------|-----------|
-| `GET` | `/api/users` | ADMIN | Lista os usuários **(T5b, em andamento)** |
-| `GET` | `/api/users/{id}` | ADMIN | Busca por id **(T5b, em andamento)** |
-| `PUT` | `/api/users/me` | autenticado | Edita nome, e-mail e senha, com a senha atual **(T5b, em andamento)** |
-| `PUT` | `/api/users/{id}` | ADMIN | Edita nome e e-mail **(T5b, em andamento)** |
-| `DELETE` | `/api/users/{id}` | ADMIN | Exclui; bloqueado se o cliente tem pedido **(T5b, em andamento)** |
+| `GET` | `/api/users` | ADMIN | Lista os usuários |
+| `GET` | `/api/users/{id}` | ADMIN | Busca por id |
+| `PUT` | `/api/users/me` | autenticado | Edita nome, e-mail e senha, com a senha atual |
+| `PUT` | `/api/users/{id}` | ADMIN | Edita nome e e-mail |
+| `DELETE` | `/api/users/{id}` | ADMIN | Exclui; bloqueado se o cliente tem pedido |
 
 Hoje o cadastro de usuário é feito por `POST /api/auth/signup`.
 
@@ -429,7 +429,7 @@ Depois de excluir um endereço, o pedido continua com `delivery_*` preenchido e 
 
 ## JSONs dos CRUDs
 
-- Pasta [`json/`](json/): um arquivo por operação de escrita de cada tabela (atualizados na T8).
+- Pasta [`json/`](json/): um arquivo por operação de escrita de cada tabela.
 - Coleção do Postman: [`postman/marketbuddies.postman_collection.json`](postman/marketbuddies.postman_collection.json)
   (atualizada na T8).
 
@@ -479,7 +479,7 @@ cp6-devops-market-buddies/
 - Java 21 e Spring Boot 4.1.1 (Web MVC, Data JPA, Security, Validation, Mail, Thymeleaf)
 - JWT (jjwt)
 - Hibernate
-- Azure SQL Database na nuvem; PostgreSQL em Docker no desenvolvimento (driver trocado na T6)
+- Azure SQL Database na nuvem; PostgreSQL em Docker no desenvolvimento (os dois drivers no mesmo JAR; o dialeto vem da `DB_URL`)
 - Azure Web App Linux, App Service Plan, Application Insights
 - Azure DevOps: Boards, Repos e Pipelines (YAML)
 - Azure CLI
