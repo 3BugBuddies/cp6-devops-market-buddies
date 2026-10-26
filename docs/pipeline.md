@@ -4,7 +4,7 @@
 
 1. **Infraestrutura (uma vez).** No terminal com `az login` feito (ou no Cloud Shell, Bash), na assinatura certa:
    ```bash
-   bash infra/infra-app.sh
+   bash scripts/infra-app.sh
    ```
    O script pede a senha do admin do SQL Server (não ecoa nem grava) e cria: grupo de recursos,
    Application Insights, SQL Server + banco `marketbuddies` (Basic), plano B1 Linux e o Web App Java 21.
@@ -19,7 +19,7 @@
    publica o JAR. O environment `marketbuddies-prod` guarda o histórico de deploys. Depois disso, todo merge
    na `main` dispara a pipeline sozinho.
 
-Para apagar tudo depois da correção: `bash infra/destroy.sh`.
+Para apagar tudo depois da correção: `bash scripts/destroy.sh`.
 
 ## Variáveis
 

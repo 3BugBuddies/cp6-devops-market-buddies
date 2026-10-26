@@ -61,11 +61,10 @@ A solução é um único deployable: telas Thymeleaf e rotas `/api/**` no mesmo 
 ```
 cp6-devops-market-buddies/
 ├── azure-pipeline.yml          pipeline CI/CD (estágios CI e CD)
-├── script.sql                  DDL das tabelas no Azure SQL
-├── integrantes.txt             nomes, RMs e links da entrega
-├── infra/
+├── scripts/
 │   ├── infra-app.sh            cria os recursos na Azure (rodar uma vez)
-│   └── destroy.sh              apaga o resource group
+│   ├── destroy.sh              apaga o resource group
+│   └── script.sql              DDL das tabelas no Azure SQL
 ├── docs/
 │   ├── pipeline.md             ordem de execução e variáveis
 │   ├── arquitetura/            fonte do desenho de arquitetura
@@ -112,7 +111,7 @@ Fonte do desenho: [`docs/arquitetura/arquitetura-macro.html`](docs/arquitetura/a
 
 ## Recursos Azure criados pelo script
 
-Script: [`infra/infra-app.sh`](infra/infra-app.sh). Para apagar tudo: [`infra/destroy.sh`](infra/destroy.sh).
+Script: [`scripts/infra-app.sh`](scripts/infra-app.sh). Para apagar tudo: [`scripts/destroy.sh`](scripts/destroy.sh).
 
 | Recurso | Nome | SKU | Região |
 |---------|------|-----|--------|
@@ -172,8 +171,9 @@ Cadastradas em Pipelines → Edit → Variables. Nenhum valor fica no repositór
 
 ## Modelo de dados
 
-As tabelas são criadas pelo Hibernate a partir das entidades JPA. O DDL completo fica em [`script.sql`](script.sql), na
-raiz: é o mesmo DDL que criou o banco no Azure SQL (profile `schema`, ver `application-schema.yaml`).
+As tabelas são criadas pelo Hibernate a partir das entidades JPA. O DDL completo fica em
+[`scripts/script.sql`](scripts/script.sql): é o mesmo DDL que criou o banco no Azure SQL (profile `schema`, ver
+`application-schema.yaml`).
 
 | Tabela | Conteúdo | Relacionamentos |
 |--------|----------|-----------------|
@@ -362,7 +362,7 @@ az account set --subscription "<nome-da-assinatura>"   # se precisar trocar
 **2. Criar a infraestrutura (uma vez)**
 
 ```bash
-bash infra/infra-app.sh
+bash scripts/infra-app.sh
 ```
 
 O script pede a senha do admin do SQL Server. No fim, ele imprime a `DB_URL`, o `DB_USER` e a lista de variáveis
@@ -399,7 +399,7 @@ os produtos e as zonas.
 **Para apagar tudo depois da correção:**
 
 ```bash
-bash infra/destroy.sh
+bash scripts/destroy.sh
 ```
 
 ---
