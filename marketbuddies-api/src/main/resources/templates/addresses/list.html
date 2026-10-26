@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Meus endereços')}"></head>
+<body class="mb-root" style="min-height: 100vh; display: flex; flex-direction: column">
+<header th:replace="~{fragments/layout :: navbar('enderecos')}"></header>
+<main class="mb-page" style="flex: 1">
+    <div class="mb-container mb-stack">
+        <div class="mb-page-header" style="margin: 0">
+            <div>
+                <h1>Meus endereços</h1>
+                <span class="mb-page-header__sub">Onde suas compras podem ser entregues</span>
+            </div>
+            <a class="mb-btn mb-btn--primary" th:href="@{/addresses/new}">
+                <svg class="mb-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Novo endereço
+            </a>
+        </div>
+
+        <div th:replace="~{fragments/layout :: alerts}"></div>
+
+        <section th:if="${addresses.isEmpty()}" class="mb-card mb-empty">
+            <span class="mb-empty__art">
+                <svg class="mb-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"></path><circle cx="12" cy="9.5" r="2.5"></circle></svg>
+            </span>
+            <h2 class="mb-empty__title">Nenhum endereço cadastrado</h2>
+            <p>Cadastre um endereço para receber suas compras; o CEP preenche rua, bairro e cidade.</p>
+            <a class="mb-btn mb-btn--primary" th:href="@{/addresses/new}">Cadastrar endereço</a>
+        </section>
+
+        <div th:unless="${addresses.isEmpty()}" class="mb-table-wrap">
+            <table class="mb-table">
+                <thead>
+                <tr>
+                    <th>Apelido</th><th>Endereço</th><th>CEP</th><th class="mb-num">Ações</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="a : ${addresses}">
+                    <td style="font-weight: 500" th:text="${a.label != null ? a.label : '—'}">Casa</td>
+                    <td>
+                        <span th:text="|${a.street}, ${a.number}${a.complement != null ? ' – ' + a.complement : ''}|">Avenida Paulista, 1000</span><br>
+                        <span class="mb-muted" th:text="|${a.district} · ${a.city}/${a.uf}|">Bela Vista · São Paulo/SP</span>
+                    </td>
+                    <td th:text="${a.formattedCep()}">01310-100</td>
+                    <td>
+                        <div class="mb-table__actions">
+                            <a class="mb-btn mb-btn--secondary mb-btn--sm" th:href="@{/addresses/{id}(id=${a.id})}"
+                               th:aria-label="|Editar ${a.label != null ? a.label : a.street}|" title="Editar">
+                                <svg class="mb-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L18.5 9.5a2.8 2.8 0 0 0-4-4L4 16v4"></path><path d="M13.5 6.5l4 4"></path></svg>
+                            </a>
+                            <button class="mb-btn mb-btn--danger mb-btn--sm" type="button" title="Excluir"
+                                    th:aria-label="|Excluir ${a.label != null ? a.label : a.street}|" data-delete
+                                    th:data-id="${a.id}" th:data-name="${a.label != null ? a.label : a.street + ', ' + a.number}">
+                                <svg class="mb-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"></path></svg>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</main>
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+
+<dialog id="delete-modal" class="mb-modal mb-modal--sm" role="alertdialog" aria-labelledby="ae-title">
+    <form class="mb-modal__panel" method="post" data-delete-form th:data-base-action="@{/addresses}"
+          th:action="@{/addresses/0/delete}">
+        <div class="mb-modal__header">
+            <div>
+                <h2 class="mb-modal__title" id="ae-title">Excluir <span data-delete-name>endereço</span>?</h2>
+                <div class="mb-modal__sub">Essa ação não pode ser desfeita.</div>
+            </div>
+        </div>
+        <div class="mb-modal__footer">
+            <button class="mb-btn mb-btn--ghost" type="button" data-dialog-close>Cancelar</button>
+            <button class="mb-btn mb-btn--danger" type="submit">Excluir endereço</button>
+        </div>
+    </form>
+</dialog>
+</body>
+</html>

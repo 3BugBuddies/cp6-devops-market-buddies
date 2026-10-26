@@ -1,10 +1,12 @@
 package br.com.fiap.marketbuddies.api.configs;
 
+import br.com.fiap.marketbuddies.api.entities.AddressEntity;
 import br.com.fiap.marketbuddies.api.entities.DeliveryZoneEntity;
 import br.com.fiap.marketbuddies.api.entities.ProductEntity;
 import br.com.fiap.marketbuddies.api.entities.UserEntity;
 import br.com.fiap.marketbuddies.api.enums.Category;
 import br.com.fiap.marketbuddies.api.enums.Role;
+import br.com.fiap.marketbuddies.api.repositories.AddressRepository;
 import br.com.fiap.marketbuddies.api.repositories.DeliveryZoneRepository;
 import br.com.fiap.marketbuddies.api.repositories.ProductRepository;
 import br.com.fiap.marketbuddies.api.repositories.UserRepository;
@@ -39,6 +41,7 @@ public class DataSeeder implements CommandLineRunner {
 
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
+    private final AddressRepository addressRepository;
     private final DeliveryZoneRepository deliveryZoneRepository;
     private final PasswordEncoder passwordEncoder;
     private final AdminProperties adminProperties;
@@ -56,11 +59,13 @@ public class DataSeeder implements CommandLineRunner {
         if (userRepository.count() > 0) {
             return;
         }
+        UserEntity customer = user("Ana Souza", TEST_CUSTOMER_EMAIL, TEST_CUSTOMER_PASSWORD, Role.CUSTOMER);
         userRepository.saveAll(List.of(
                 user("Gerência", adminProperties.email(), adminProperties.password(), Role.ADMIN),
-                user("Ana Souza", TEST_CUSTOMER_EMAIL, TEST_CUSTOMER_PASSWORD, Role.CUSTOMER)
+                customer
         ));
-        log.info("Seed: ADMIN {} e cliente de teste criados", adminProperties.email());
+        addressRepository.save(homeAddress(customer));
+        log.info("Seed: ADMIN {} e cliente de teste (com endereço) criados", adminProperties.email());
     }
 
     private void seedProducts() {
@@ -111,6 +116,20 @@ public class DataSeeder implements CommandLineRunner {
         user.setPassword(passwordEncoder.encode(rawPassword));
         user.setRole(role);
         return user;
+    }
+
+    /** Só nasce junto com a Ana: se ela excluir o endereço, nenhum boot recria. */
+    private static AddressEntity homeAddress(UserEntity customer) {
+        AddressEntity address = new AddressEntity();
+        address.setCustomer(customer);
+        address.setLabel("Casa");
+        address.setCep("01310100");
+        address.setStreet("Avenida Paulista");
+        address.setNumber("1000");
+        address.setDistrict("Bela Vista");
+        address.setCity("São Paulo");
+        address.setUf("SP");
+        return address;
     }
 
     private ProductEntity product(String name, Category category, String cost, String markup,

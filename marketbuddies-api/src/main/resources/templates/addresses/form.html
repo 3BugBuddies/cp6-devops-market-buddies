@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head(${addressId == null ? 'Novo endereço' : 'Editar endereço'})}"></head>
+<body class="mb-root" style="min-height: 100vh; display: flex; flex-direction: column">
+<header th:replace="~{fragments/layout :: navbar('enderecos')}"></header>
+<main class="mb-page" style="flex: 1">
+    <div class="mb-container mb-stack" style="max-width: 760px">
+        <div class="mb-page-header" style="margin: 0">
+            <div>
+                <h1 th:text="${addressId == null} ? 'Novo endereço' : 'Editar endereço'">Novo endereço</h1>
+                <span class="mb-page-header__sub">Digite o CEP: rua, bairro, cidade e UF vêm do ViaCEP</span>
+            </div>
+            <a class="mb-btn mb-btn--ghost" th:href="${next != null} ? @{${next}} : @{/addresses}">Voltar</a>
+        </div>
+
+        <form class="mb-card" method="post" novalidate th:object="${addressForm}" data-address-form
+              th:data-cep-url="@{/api/addresses/cep}"
+              th:action="${addressId == null} ? @{/addresses} : @{/addresses/{id}(id=${addressId})}"
+              style="display: flex; flex-direction: column; gap: 16px">
+            <input type="hidden" name="next" th:if="${next != null}" th:value="${next}">
+            <div class="mb-form-grid">
+                <div class="mb-field">
+                    <label class="mb-label" for="ad-cep">CEP</label>
+                    <input class="mb-input" id="ad-cep" th:field="*{cep}" th:errorclass="mb-input--error"
+                           inputmode="numeric" autocomplete="postal-code" maxlength="9" placeholder="00000-000" data-cep>
+                    <p class="mb-field__error" th:if="${#fields.hasErrors('cep')}" th:errors="*{cep}">Informe um CEP com 8 dígitos.</p>
+                    <p class="mb-field__hint" data-cep-message role="status" aria-live="polite"></p>
+                </div>
+                <div class="mb-field">
+                    <label class="mb-label" for="ad-label">Apelido <span class="mb-muted">(opcional)</span></label>
+                    <input class="mb-input" id="ad-label" th:field="*{label}" th:errorclass="mb-input--error"
+                           maxlength="40" placeholder="Casa, Trabalho">
+                    <p class="mb-field__error" th:if="${#fields.hasErrors('label')}" th:errors="*{label}">Até 40 caracteres.</p>
+                </div>
+                <div class="mb-field mb-form-grid__full">
+                    <label class="mb-label" for="ad-street">Rua</label>
+                    <input class="mb-input" id="ad-street" th:field="*{street}" th:errorclass="mb-input--error"
+                           maxlength="120" autocomplete="address-line1" data-cep-fill="street">
+                    <p class="mb-field__error" th:if="${#fields.hasErrors('street')}" th:errors="*{street}">Informe a rua.</p>
+                </div>
+                <div class="mb-field">
+                    <label class="mb-label" for="ad-number">Número</label>
+                    <input class="mb-input" id="ad-number" th:field="*{number}" th:errorclass="mb-input--error"
+                           maxlength="10">
+                    <p class="mb-field__error" th:if="${#fields.hasErrors('number')}" th:errors="*{number}">Informe o número.</p>
+                </div>
+                <div class="mb-field">
+                    <label class="mb-label" for="ad-complement">Complemento <span class="mb-muted">(opcional)</span></label>
+                    <input class="mb-input" id="ad-complement" th:field="*{complement}" th:errorclass="mb-input--error"
+                           maxlength="60" autocomplete="address-line2">
+                    <p class="mb-field__error" th:if="${#fields.hasErrors('complement')}" th:errors="*{complement}">Até 60 caracteres.</p>
+                </div>
+                <div class="mb-field">
+                    <label class="mb-label" for="ad-district">Bairro</label>
+                    <input class="mb-input" id="ad-district" th:field="*{district}" th:errorclass="mb-input--error"
+                           maxlength="60" data-cep-fill="district">
+                    <p class="mb-field__error" th:if="${#fields.hasErrors('district')}" th:errors="*{district}">Informe o bairro.</p>
+                </div>
+                <div class="mb-field">
+                    <label class="mb-label" for="ad-city">Cidade</label>
+                    <input class="mb-input" id="ad-city" th:field="*{city}" th:errorclass="mb-input--error"
+                           maxlength="60" autocomplete="address-level2" data-cep-fill="city">
+                    <p class="mb-field__error" th:if="${#fields.hasErrors('city')}" th:errors="*{city}">Informe a cidade.</p>
+                </div>
+                <div class="mb-field">
+                    <label class="mb-label" for="ad-uf">UF</label>
+                    <input class="mb-input" id="ad-uf" th:field="*{uf}" th:errorclass="mb-input--error"
+                           maxlength="2" autocomplete="address-level1" style="text-transform: uppercase" data-cep-fill="uf">
+                    <p class="mb-field__error" th:if="${#fields.hasErrors('uf')}" th:errors="*{uf}">Informe a UF.</p>
+                </div>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 8px">
+                <a class="mb-btn mb-btn--ghost" th:href="${next != null} ? @{${next}} : @{/addresses}">Cancelar</a>
+                <button class="mb-btn mb-btn--primary" type="submit">Salvar endereço</button>
+            </div>
+        </form>
+    </div>
+</main>
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>
