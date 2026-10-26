@@ -1,7 +1,7 @@
 # Banco local para desenvolvimento: PostgreSQL. A API roda pela IDE ou no profile "app":
 #   docker compose up -d                          só o banco
 #   docker compose --profile app up -d --build    banco + API em http://localhost:8080
-# Na nuvem o banco é o Azure SQL (criado por infra/infra-app.sh).
+# Na nuvem o banco é o Azure SQL (criado por scripts/infra-app.sh).
 
 services:
   api:
