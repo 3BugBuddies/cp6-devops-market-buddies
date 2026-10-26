@@ -1,0 +1,113 @@
+# Pipeline da MarketBuddies API (CP6) - CI (build + testes) e CD (deploy no Azure Web App)
+#
+# A infraestrutura (Web App, plano, App Insights, Azure SQL) é criada uma vez por infra/infra-app.sh.
+#
+# As variáveis abaixo são cadastradas na UI da pipeline (Edit > Variables), NUNCA neste arquivo:
+#   DB_URL          - JDBC do Azure SQL (impressa no fim do infra-app.sh)
+#   DB_USER         - usuário admin do SQL Server
+# As secretas, com "Keep this value secret" marcado:
+#   DB_PASSWORD     - secreta
+#   JWT_SECRET      - secreta
+#   ADMIN_PASSWORD  - secreta
+#   MAIL_USERNAME   - secreta
+#   MAIL_PASSWORD   - secreta
+
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  JAVA_VERSION: '21'
+  JDK_VERSION: '1.21'
+  ARTIFACT_NAME: 'app'
+  TEST_RUN_TITLE: 'Testes de Código'
+  azureSubscription: 'sc-marketbuddies'
+  WEB_APP_NAME: 'marketbuddies-rm563925'
+  RESOURCE_GROUP: 'rg-cp6-marketbuddies'
+
+stages:
+  - stage: CI
+    displayName: 'CI - Build e Testes'
+    jobs:
+      - job: Build
+        displayName: 'Instalar e Configurar Java'
+        steps:
+          - task: JavaToolInstaller@0
+            displayName: 'Configurar Java 21'
+            inputs:
+              versionSpec: $(JAVA_VERSION)
+              jdkArchitectureOption: 'x64'
+              jdkSourceOption: 'PreInstalled'
+
+          - task: Maven@4
+            displayName: 'Maven - Compilar e executar testes'
+            inputs:
+              mavenPomFile: 'marketbuddies-api/pom.xml'
+              goals: 'clean package'
+              options: ''
+              publishJUnitResults: true
+              testResultsFiles: '**/surefire-reports/TEST-*.xml'
+              testRunTitle: $(TEST_RUN_TITLE)
+              javaHomeOption: 'JDKVersion'
+              jdkVersionOption: $(JDK_VERSION)
+              mavenVersionOption: 'Default'
+
+          - task: CopyFiles@2
+            displayName: 'Preparar artefato JAR'
+            inputs:
+              SourceFolder: '$(System.DefaultWorkingDirectory)'
+              Contents: 'marketbuddies-api/target/*.jar'
+              TargetFolder: '$(Build.ArtifactStagingDirectory)/$(ARTIFACT_NAME)'
+
+          - task: PublishPipelineArtifact@1
+            displayName: 'Publicar artefato app'
+            inputs:
+              targetPath: '$(Build.ArtifactStagingDirectory)/$(ARTIFACT_NAME)'
+              artifact: '$(ARTIFACT_NAME)'
+              publishLocation: 'pipeline'
+
+  - stage: CD
+    displayName: 'CD - Deploy no Azure Web App'
+    dependsOn: CI
+    condition: succeeded()
+    jobs:
+      - deployment: Deploy
+        displayName: 'Deploy Spring Boot'
+        environment: 'marketbuddies-prod'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: 'app'
+
+                - task: AzureAppServiceSettings@1
+                  displayName: 'Configurar variáveis de ambiente do Web App'
+                  inputs:
+                    azureSubscription: '$(azureSubscription)'
+                    appName: '$(WEB_APP_NAME)'
+                    resourceGroupName: '$(RESOURCE_GROUP)'
+                    appSettings: |
+                      [
+                        { "name": "DB_URL", "value": "$(DB_URL)", "slotSetting": false },
+                        { "name": "DB_USER", "value": "$(DB_USER)", "slotSetting": false },
+                        { "name": "DB_PASSWORD", "value": "$(DB_PASSWORD)", "slotSetting": false },
+                        { "name": "DDL_AUTO", "value": "update", "slotSetting": false },
+                        { "name": "JWT_SECRET", "value": "$(JWT_SECRET)", "slotSetting": false },
+                        { "name": "ADMIN_PASSWORD", "value": "$(ADMIN_PASSWORD)", "slotSetting": false },
+                        { "name": "MAIL_USERNAME", "value": "$(MAIL_USERNAME)", "slotSetting": false },
+                        { "name": "MAIL_PASSWORD", "value": "$(MAIL_PASSWORD)", "slotSetting": false }
+                      ]
+
+                - task: AzureWebApp@1
+                  displayName: 'Deploy via Zip Deploy'
+                  inputs:
+                    azureSubscription: '$(azureSubscription)'
+                    appType: 'webAppLinux'
+                    appName: '$(WEB_APP_NAME)'
+                    package: '$(Pipeline.Workspace)/app/**/*.jar'
+                    deploymentMethod: 'zipDeploy'
